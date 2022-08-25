@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Script.sol";
 
-import "../../src/UpgradeScripts.sol";
+import "upgrade-scripts/UpgradeScripts.sol";
 import "./ExampleNFT.sol";
 
 contract ExampleSetupScript is UpgradeScripts {
