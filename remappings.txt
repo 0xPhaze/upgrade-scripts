@@ -1,0 +1,7 @@
+/=src/
+@ensdomains/=node_modules/@ensdomains/
+@openzeppelin/=lib/openzeppelin-contracts/
+UDS/=lib/UDS/src/
+chainlink/=lib/chainlink/
+forge-std/=lib/forge-std/src/
+solmate/=lib/solmate/src/

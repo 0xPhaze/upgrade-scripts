@@ -1,0 +1,19 @@
+node_modules
+.env
+coverage
+coverage.json
+typechain
+
+broadcast
+
+json
+
+#Hardhat files
+cache
+artifacts
+
+out
+
+!.vscode
+!.prettierrc
+!.gas-snapshot

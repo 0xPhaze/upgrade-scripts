@@ -1,0 +1,19 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+            "type": "shell",
+			// "command": "forge test -vvv -m rounding",
+			"command": "forge test -vvv",
+			// "command": "forge test -vvv -m dummy",
+			// "command": "forge test --gas-report --match-contract Rewards > report.md",
+			// "command": "forge test --match transferYield -vvv",
+			// "command": "forge test -vvv --match-contract TestEncoding",
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			},
+			"label": "forge test",
+		}
+	]
+}
