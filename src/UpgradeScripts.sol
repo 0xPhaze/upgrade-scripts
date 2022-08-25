@@ -103,6 +103,8 @@ contract UpgradeScripts is Script {
         } else {
             console.log("Implementation for %s [%s] not found.", contractName, key);
             deployNew = true;
+
+            if (__UPGRADE_SCRIPTS_ATTACH) revert("Contract deployment is missing.");
         }
 
         if (deployNew) {
@@ -162,6 +164,8 @@ contract UpgradeScripts is Script {
             }
         } else {
             console.log("Existing Proxy::%s [%s] not found.", contractName, key);
+
+            if (__UPGRADE_SCRIPTS_ATTACH) revert("Contract deployment is missing.");
 
             proxy = confirmDeployProxy(implementation, initCall);
 
