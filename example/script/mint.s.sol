@@ -18,6 +18,7 @@ forge script mint --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17
 contract mint is ExampleSetupScript {
     function __upgrade_scripts_init() internal override {
         __UPGRADE_SCRIPTS_ATTACH = true; // we only want to load and set up existing contracts
+        // run the rest of the init script that loads `deploy-latest.json`
         super.__upgrade_scripts_init();
     }
 

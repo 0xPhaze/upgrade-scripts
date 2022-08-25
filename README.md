@@ -98,6 +98,30 @@ If we re-run the script now, it will deploy a new implementation, perform the up
 
 ## Extra Notes
 
+### Testing with Upgrade Scripts
+
+In order to keep the deployment as close to the testing environment, it is advised
+to share the same setup scripts.
+
+In order to disable any additional checks or logs when running `forge test`,
+the function `__upgrade_scripts_init()` can be overriden to
+include `__UPGRADE_SCRIPTS_BYPASS = true;`, as seen in [ExampleNFT.t.sol](./example/test/ExampleNFT.t.sol).
+This bypasses all of the checks and logs and only deploys the contracts.
+
+### Interacting with Deployed Contracts
+
+To be able to interact with deployed contracts, the existing contracts should
+only be "attached" to the current environment and not re-deployed.
+An example of how this can be done in order to mint an NFT from a deployed
+address is shown in [mint.s.sol](./example/script/mint.s.sol). 
+
+This can be run as
+```sh
+forge script mint --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --broadcast --ffi
+```
+The previous steps (deploying) have to be completed first for this to work.
+
+
 ## Notes and disclaimers
 These scripts do not replace manual review and caution must be taken when upgrading contracts
 in any case.
