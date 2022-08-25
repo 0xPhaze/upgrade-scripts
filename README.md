@@ -101,11 +101,11 @@ If we re-run the script now, it will deploy a new implementation, perform the up
 ### Testing with Upgrade Scripts
 
 In order to keep the deployment as close to the testing environment, it is advised
-to share the same setup scripts.
+to share the same contract set-up scripts.
 
-In order to disable any additional checks or logs when running `forge test`,
+To disable any additional checks or logs when running `forge test`,
 the function `__upgrade_scripts_init()` can be overriden to
-include `__UPGRADE_SCRIPTS_BYPASS = true;`, as seen in [ExampleNFT.t.sol](./example/test/ExampleNFT.t.sol).
+include `__UPGRADE_SCRIPTS_BYPASS = true;`. This can be seen in [ExampleNFT.t.sol](./example/test/ExampleNFT.t.sol).
 This bypasses all of the checks and logs and only deploys the contracts.
 
 ### Interacting with Deployed Contracts
@@ -115,12 +115,10 @@ only be "attached" to the current environment and not re-deployed.
 An example of how this can be done in order to mint an NFT from a deployed
 address is shown in [mint.s.sol](./example/script/mint.s.sol). 
 
-This can be run as
+The script can then be run (ensure that the previous steps have been completed first).
 ```sh
-forge script mint --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --broadcast --ffi
+forge script mint --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --broadcast
 ```
-The previous steps (deploying) have to be completed first for this to work.
-
 
 ## Notes and disclaimers
 These scripts do not replace manual review and caution must be taken when upgrading contracts
@@ -129,10 +127,10 @@ Make sure you understand what the scripts are doing. I am not responsible for an
 
 Note that, it currently is not possible to detect whether `--broadcast` is enabled.
 Thus the script can't reliably detect whether the transactions are only simulated or sent
-on-chain. For that reason, `DRY_RUN=true` must ALWAYS be passed in when `--broadcast` is set.
-Otherwise this will update `deploy-latest.json` with addresses that don't actually exist.
+on-chain. For that reason, `UPGRADE_SCRIPT_DRY_RUN=true` must ALWAYS be set when `--broadcast` is passed in.
+Otherwise this will update `deploy-latest.json` with addresses that haven't actually been deployed yet and will complain on the next run.
 
-When `deploy-latest.json` was updated with incorrect addresses for this reason, just delete the file and the incorrect `deploy-{newestTimestamp}.json` (that has the highest latest timestamp) and copy the second oldest `.json` containing the valid addresses.
+When `deploy-latest.json` was updated with incorrect addresses for this reason, just delete the file and the incorrect previously created `deploy-{latestTimestamp}.json` (containing the highest latest timestamp) and copy the correct `.json` (second highest timestamp) to `deploy-latest.json`.
 
-Further note that, if anvil is restarted, these deployments will also be invalid.
-To reset these in this case, just delete the corresponding folder `rm -rf deployments/31337`.
+If anvil is restarted, these deployments will also be invalid.
+Simply delete the corresponding folder `rm -rf deployments/31337` in this case.
