@@ -29,12 +29,11 @@ anvil
 
 Read through [deploy.s.sol](./example/script/deploy.s.sol) before running random scripts from the internet using `--ffi`.
 
-Run
+In the example project root, run
 ```sh
 UPGRADE_SCRIPTS_DRY_RUN=true forge script deploy --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --ffi
 ```
-in the example project root
-to go through a "dry-run" of the deploy scripts and make sure it runs correctly.
+to go through a "dry-run" of the deploy scripts.
 This connects to your running anvil node using the default account's private key.
 
 Add `--broadcast` and `--ffi` to the command to actually broadcast the transactions on-chain.
@@ -129,30 +128,35 @@ The script can then be run via:
 forge script mint --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --broadcast
 ```
 
-### Contract Storage Layout Incompatibility Example
+### Contract Storage Layout Incompatible Example
 
-This is an example of what a contract storage layout change could look like:
+Here is an example of what a incompatible contract storage layout change could look like:
 
 ```diff
-"t_enum(DISTRICT_STATE)40287": {                                     |     "t_enum(DISTRICT_STATE)40450": {
-"t_enum(Gang)40280": {                                               |     "t_enum(Gang)40443": {
-"t_enum(PLAYER_STATE)40295": {                                       |     "t_enum(PLAYER_STATE)40458": {
-"t_mapping(t_enum(Gang)40280,t_mapping(t_uint256,t_uint256))": {     |     "t_mapping(t_enum(Gang)40443,t_mapping(t_uint256,t_uint256))": {
-  "key": "t_enum(Gang)40280",                                        |       "key": "t_enum(Gang)40443",
-                                                                     >     "t_mapping(t_uint256,t_bool)": {
-                                                                     >       "encoding": "mapping",
-                                                                     >       "key": "t_uint256",
-                                                                     >       "label": "mapping(uint256 => bool)",
-                                                                     >       "numberOfBytes": "32",
-                                                                     >       "value": "t_bool"
-                                                                     >     },
-"t_mapping(t_uint256,t_struct(District)40351_storage)": {            |     "t_mapping(t_uint256,t_struct(District)40514_storage)": {
-  "value": "t_struct(District)40351_storage"                         |       "value": "t_struct(District)40514_storage"
-"t_mapping(t_uint256,t_struct(Gangster)40314_storage)": {            |     "t_mapping(t_uint256,t_struct(Gangster)40477_storage)": {
-  "value": "t_struct(Gangster)40314_storage"                         |       "value": "t_struct(Gangster)40477_storage"
+"label": "districts",                                              |           "label": "sharesRegistered",
+"type": "t_mapping(t_uint256,t_struct(District)40351_storage)"     |           "type": "t_mapping(t_uint256,t_bool)"
+"astId": 40369,                                                    |           "astId": 40531,
+"label": "gangsters",                                              |           "label": "districts",
+"type": "t_mapping(t_uint256,t_struct(Gangster)40314_storage)"     |           "type": "t_mapping(t_uint256,t_struct(District)40514_storage)"
+"astId": 40373,                                                    |           "astId": 40536,
+"label": "itemCost",                                               |           "label": "gangsters",
+                                                                   >           "type": "t_mapping(t_uint256,t_struct(Gangster)40477_storage)"
+                                                                   >         },
+                                                                   >         {
+                                                                   >           "astId": 40540,
+                                                                   >           "contract": "src/GangWar.sol:GangWar",
+                                                                   >           "label": "itemCost",
+                                                                   >           "offset": 0,
+                                                                   >           "slot": "7",
+"astId": 40377,                                                    |           "astId": 40544,
+"slot": "7",                                                       |           "slot": "8",
 ```
 
-Here, an additional `mapping(uint256 => bool)` (right side) was inserted in a storage struct at an invalid slot, which would have led to storage conflicts.
+Here, an additional `mapping(uint256 => bool) sharesRegistered` (right side) was inserted in a storage struct at a slot (`slot 7`)
+where previously another mapping existed. Note that the variable `itemCost`, previously `slot 7` (left side) is now located at `slot 8`.
+Running an upgrade with this change would lead to storage layout conflicts.
+
+A file-diff is better inspected with some diff-tool viewer (like vs-code's right-click > compare selected).
 
 ## Notes and disclaimers
 These scripts do not replace manual review and caution must be taken when upgrading contracts
