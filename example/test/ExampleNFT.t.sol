@@ -14,7 +14,7 @@ contract TestExampleNFT is ExampleSetupScript {
         setUpContracts();
     }
 
-    function test_integration() public {
+    function test_integration() public view {
         require(nft.owner() == address(this));
 
         require(keccak256(abi.encode(nft.name())) == keccak256(abi.encode("My NFT")));

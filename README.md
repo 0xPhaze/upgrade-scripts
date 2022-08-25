@@ -39,50 +39,49 @@ forge script deploy --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a
 ```
 to deploy and set up the contracts locally.
 
-After running successfully, it should have created [deploy-latest.json](./example/deployments/31337/deploy-latest.json) (keeps track of your up-to-date deployments) and a bunch of other data (used for running checks, such as storage layout changes).
+After running successfully, it should have created the file `./example/deployments/31337/deploy-latest.json` which keeps track of your up-to-date deployments. It also saves the contracts creation code hash and its storage layout.
 
 Try out running the command again. 
 It will detect that no implementation has changed and thus not create any new transactions.
 
-## Changing implementation
+## Upgrading a Proxy Implementation
 
 If any registered contracts' implementation changes, this should be detected and the corresponding proxies should be updated.
 
-Try changing the implementation by, for example, uncommenting the line in `tokenURI()` of `ExampleNFT` in [deploy.s.sol](./example/script/deploy.s.sol) and re-running the script.
+Try changing the implementation by, for example, uncommenting the line in `tokenURI()` in [ExampleNFT.sol](./example/src/ExampleNFT.sol) and re-running the script.
 ```solidity
+contract ExampleNFT {
+    ...
     function tokenURI(uint256 id) public view override returns (string memory uri) {
         // uri = "abcd";
     }
+}
 ```
 
 After successfully upgrading the contracts to the latest versions, running the script once more
 should not create any additional changes/transactions.
 
-## Changing storage layout of implementation
+## Changing Storage Layout of Implementation
 
 A main security-feature of these scripts is to detect storage-layout changes.
 
-Try uncommenting the following line in `ExampleNFT` ([deploy.s.sol](./example/script/deploy.s.sol)).
+Try uncommenting the following line in [ExampleNFT.sol](./example/src/ExampleNFT.sol).
 ```solidity
 contract ExampleNFT is UUPSUpgrade, ERC721UDS, OwnableUDS {
     // uint256 public contractId = 1;
+    ...
+}
 ```
 
 This adds an extra variable `contractId` to the storage of `ExampleNFT`.
-If the script is run again (note that `--broadcast` and `--ffi` need to be enabled here),
-it should output:
+If the script is run again (note that `--ffi` needs to be enabled),
+it should notify that a storage layout change has been detected:
 ```diff
   Storage layout compatibility check [0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0 <-> 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9]: fail
   
 Diff:
-  >         },
-                                                                                      >     {
-                                                                                      >       "astId": 18278,
-                                                                                      >       "contract": "script/deploy.s.sol:ExampleNFT",
-                                                                                      >       "label": "contractId",
-                                                                                      >       "offset": 0,
-                                                                                      >       "slot": "8",
-                                                                                      >       "type": "t_uint256"
+  [...]
+
   If you believe the storage layout is compatible,
   add `if (block.chainid == 31337) isUpgradeSafe[0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0][0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9] = true;` to `run()` in your deploy script.
 ```
@@ -93,10 +92,11 @@ Thus any positive detection here will have to be manually review.
 
 Another thing to account for is that, since dry-run uses `vm.prank` instead of `vm.broadcast`, there might be some differences when calculating the addresses of newly deployed contracts. Thus, when running without a dry-run, the address to mark as "upgrade-safe" can be a different one.
 
-In our case, we know it is safe and can add
+In our case, we know it is safe and can add the line
 `if (block.chainid == 31337) isUpgradeSafe[0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0][0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9] = true;` to the start of `run()` in [deploy.s.sol](./example/script/deploy.s.sol).
-If we re-run the script now, it will perform the upgrade for our proxy.
+If we re-run the script now, it will deploy a new implementation, perform the upgrade for our proxy and update the contract addresses in `deploy-latest.json`.
 
+## Extra Notes
 
 ## Notes and disclaimers
 These scripts do not replace manual review and caution must be taken when upgrading contracts
@@ -104,7 +104,7 @@ in any case.
 Make sure you understand what the scripts are doing. I am not responsible for any damages created.
 
 Note that, it currently is not possible to detect whether `--broadcast` is enabled.
-Thus the script can't reliably detect whether the transactions are only simultated or sent
+Thus the script can't reliably detect whether the transactions are only simulated or sent
 on-chain. For that reason, `DRY_RUN=true` must ALWAYS be passed in when `--broadcast` is set.
 Otherwise this will update `deploy-latest.json` with addresses that don't actually exist.
 
