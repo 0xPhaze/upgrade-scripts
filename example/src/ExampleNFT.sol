@@ -6,7 +6,7 @@ import {OwnableUDS} from "UDS/auth/OwnableUDS.sol";
 import {UUPSUpgrade} from "UDS/proxy/UUPSUpgrade.sol";
 
 contract ExampleNFT is UUPSUpgrade, ERC721UDS, OwnableUDS {
-    uint256 public contractId = 1;
+    // uint256 public contractId = 1;
 
     function init(string calldata name, string calldata symbol) external initializer {
         __Ownable_init();
