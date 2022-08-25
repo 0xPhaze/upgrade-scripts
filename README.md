@@ -152,11 +152,13 @@ Here is an example of what a incompatible contract storage layout change could l
 "slot": "7",                                                   |   "slot": "8",
 ```
 
-Here, an additional `mapping(uint256 => bool) sharesRegistered` (right side) was inserted in a storage struct at a slot (`slot 7`)
-where previously another mapping existed. Note that the variable `itemCost`, previously `slot 7` (left side) is now located at `slot 8`.
+Here, an additional `mapping(uint256 => bool) sharesRegistered` (right side) was inserted in a storage slot
+where previously another mapping existed, shifting the slots of the other variables. 
+The variable `itemCost`, previously `slot 7` (left side) is now located at `slot 8`.
 Running an upgrade with this change would lead to storage layout conflicts.
 
-A file-diff is better inspected with some diff-tool viewer (like vs-code's right-click > compare selected).
+Using some diff-tool viewer (such as vs-code's right-click > compare selected) can often paint a clearer picture.
+![image](https://user-images.githubusercontent.com/103113487/186721360-6dee87fe-ad9a-431e-8d0a-2ad9ce601406.png)
 
 ## Notes and disclaimers
 These scripts do not replace manual review and caution must be taken when upgrading contracts
