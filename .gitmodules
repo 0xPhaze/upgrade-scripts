@@ -10,3 +10,6 @@
 [submodule "example/lib/upgrade-scripts"]
 	path = example/lib/upgrade-scripts
 	url = https://github.com/0xPhaze/upgrade-scripts
+[submodule "lib/UDS"]
+	path = lib/UDS
+	url = https://github.com/0xPhaze/UDS
