@@ -108,7 +108,6 @@ contract UpgradeScripts is Script {
         if (deployNew) {
             implementation = confirmDeployCode(creationCode);
 
-            console.log("tx.origin", tx.origin);
             console.log("=> new %s.\n", label(contractName, implementation, key));
 
             saveCreationCodeHash(implementation, keccak256(creationCode));
@@ -403,13 +402,23 @@ contract UpgradeScripts is Script {
     function requireConfirmation(string memory variable) internal virtual {
         if (isTestnet() || __UPGRADE_SCRIPTS_DRY_RUN) return;
 
-        try vm.envBool(variable) returns (bool confirmed) {
-            if (!confirmed) {
-                console.log("WARNING: `%s=true` must be set", variable);
-                console.log("Disabling broadcasting transactions.");
-                vm.stopBroadcast();
-            }
+        bool confirmed;
+        try vm.envBool(variable) returns (bool confirmed_) {
+            confirmed = confirmed_;
         } catch {}
+
+        if (!confirmed) {
+            console.log("\nWARNING: `%s=true` must be set for mainnet.", variable);
+
+            if (!__UPGRADE_SCRIPTS_DRY_RUN) {
+                console.log("Disabling `vm.broadcast`, continuing as dry-run.\n");
+                __UPGRADE_SCRIPTS_DRY_RUN = true;
+            }
+            // need to start prank instead now to be consistent in "dry-run"
+            vm.stopBroadcast();
+            vm.stopPrank();
+            vm.startPrank(tx.origin);
+        }
     }
 
     function hasCode(address addr) internal view virtual returns (bool hasCode_) {
@@ -420,9 +429,9 @@ contract UpgradeScripts is Script {
 
     // TODO add more chains
     function isTestnet() internal view virtual returns (bool) {
-        // if (block.chainid == 4) return true;
-        // if (block.chainid == 3_1337) return true;
-        // if (block.chainid == 80_001) return true;
+        if (block.chainid == 4) return true;
+        if (block.chainid == 3_1337) return true;
+        if (block.chainid == 80_001) return true;
         return false;
     }
 

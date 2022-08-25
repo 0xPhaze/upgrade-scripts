@@ -1,13 +1,12 @@
 # Upgrade Scripts
 
 These scripts have only been tested with the [UDS repository](https://github.com/0xPhaze/UDS).
-It is advised to run through an example.
+
+## Example Usage using Anvil
 
 Make sure [Foundry](https://book.getfoundry.sh) is installed.
 
-## Example using Anvil
-
-Clone the repository by running
+Clone the repository:
 ```sh
 git clone https://github.com/0xPhaze/upgrade-scripts
 ```
@@ -97,6 +96,9 @@ In our case, we know it is safe and can add the line
 If we re-run the script now, it will deploy a new implementation, perform the upgrade for our proxy and update the contract addresses in `deploy-latest.json`.
 
 ## Extra Notes
+
+### Running on Mainnet
+If not running on a testnet, adding `CONFIRM_DEPLOYMENT=true CONFIRM_UPGRADE=true forge ...` might be necessary. This is an additional safety measure. 
 
 ### Testing with Upgrade Scripts
 
