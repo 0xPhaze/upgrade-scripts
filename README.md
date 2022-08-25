@@ -133,23 +133,23 @@ forge script mint --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17
 Here is an example of what a incompatible contract storage layout change could look like:
 
 ```diff
-"label": "districts",                                              |           "label": "sharesRegistered",
-"type": "t_mapping(t_uint256,t_struct(District)40351_storage)"     |           "type": "t_mapping(t_uint256,t_bool)"
-"astId": 40369,                                                    |           "astId": 40531,
-"label": "gangsters",                                              |           "label": "districts",
-"type": "t_mapping(t_uint256,t_struct(Gangster)40314_storage)"     |           "type": "t_mapping(t_uint256,t_struct(District)40514_storage)"
-"astId": 40373,                                                    |           "astId": 40536,
-"label": "itemCost",                                               |           "label": "gangsters",
-                                                                   >           "type": "t_mapping(t_uint256,t_struct(Gangster)40477_storage)"
-                                                                   >         },
-                                                                   >         {
-                                                                   >           "astId": 40540,
-                                                                   >           "contract": "src/GangWar.sol:GangWar",
-                                                                   >           "label": "itemCost",
-                                                                   >           "offset": 0,
-                                                                   >           "slot": "7",
-"astId": 40377,                                                    |           "astId": 40544,
-"slot": "7",                                                       |           "slot": "8",
+"label": "districts",                                          |   "label": "sharesRegistered",
+"type": "t_mapping(t_uint256,t_struct(District)40351_storage)" |   "type": "t_mapping(t_uint256,t_bool)"
+"astId": 40369,                                                |   "astId": 40531,
+"label": "gangsters",                                          |   "label": "districts",
+"type": "t_mapping(t_uint256,t_struct(Gangster)40314_storage)" |   "type": "t_mapping(t_uint256,t_struct(District)40514_storage)"
+"astId": 40373,                                                |   "astId": 40536,
+"label": "itemCost",                                           |   "label": "gangsters",
+                                                               >   "type": "t_mapping(t_uint256,t_struct(Gangster)40477_storage)"
+                                                               > },
+                                                               > {
+                                                               >   "astId": 40540,
+                                                               >   "contract": "src/GangWar.sol:GangWar",
+                                                               >   "label": "itemCost",
+                                                               >   "offset": 0,
+                                                               >   "slot": "7",
+"astId": 40377,                                                |   "astId": 40544,
+"slot": "7",                                                   |   "slot": "8",
 ```
 
 Here, an additional `mapping(uint256 => bool) sharesRegistered` (right side) was inserted in a storage struct at a slot (`slot 7`)
