@@ -1,4 +1,4 @@
-# Upgrade Scripts
+# Upgrade Scripts (WIP)
 
 Scripts to automate keeping track of active deployments and upgrades. Allows for:
 - automatic contract deployments and proxy upgrades if the source has changed
@@ -7,7 +7,29 @@ Scripts to automate keeping track of active deployments and upgrades. Allows for
 
 These scripts use [ERC1967Proxy](https://github.com/0xPhaze/UDS/blob/master/src/proxy/ERC1967Proxy.sol).
 
-## Example Usage using Anvil
+## Keep Proxies Updated
+
+This example is from [ExampleNFT](./example/src/ExampleNFT.sol).
+
+```solidity
+contract ExampleSetupScript is UpgradeScripts {
+    ExampleNFT nft;
+
+    function setUpContracts() internal {
+        bytes memory initCall = abi.encodeWithSelector(ExampleNFT.init.selector, "My NFT", "NFTX");
+        address implementation = setUpContract("myNFTLogic", "ExampleNFT", type(ExampleNFT).creationCode);
+        nft = ExampleNFT(setUpProxy("myNFT", "ExampleNFT", implementation, initCall));
+    }
+}
+```
+
+Running this script on a live network will deploy the *implementation contract* and the *proxy contract* **once**.
+Re-running this script without the implementation having changed **won't do anything**.
+Re-running this script with a new implementation will deploy a new implementation contract and **update your existing proxy**
+to point to it.
+
+
+## Example Tutorial using Anvil
 
 First, make sure [Foundry](https://book.getfoundry.sh) is installed.
 
