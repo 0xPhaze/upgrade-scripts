@@ -379,6 +379,7 @@ contract UpgradeScripts is Script {
     /* ------------- utils ------------- */
 
     function deployProxy(address implementation, bytes memory initCall) internal virtual returns (address) {
+        assertIsERC1967Upgrade(implementation);
         return deployCode(abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(implementation, initCall)));
     }
 
@@ -446,6 +447,22 @@ contract UpgradeScripts is Script {
             return true;
         } catch {
             return false;
+        }
+    }
+
+    function assertIsERC1967Upgrade(address implementation) internal virtual {
+        if (implementation.code.length == 0) {
+            console.log("No code stored at %s.", implementation);
+            revert("Invalid contract address.");
+        }
+        try UUPSUpgrade(implementation).proxiableUUID() returns (bytes32 uuid) {
+            if (uuid != ERC1967_PROXY_STORAGE_SLOT) {
+                console.log("Invalid proxiable UUID for implementation %s.", implementation);
+                revert("Contract not upgradeable.");
+            }
+        } catch {
+            console.log("Contract %s does not implement proxiableUUID().", implementation);
+            revert("Contract not upgradeable.");
         }
     }
 
