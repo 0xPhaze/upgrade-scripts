@@ -9,7 +9,7 @@ These scripts use [ERC1967Proxy](https://github.com/0xPhaze/UDS/blob/master/src/
 
 ## Keep Proxies Updated
 
-This example is from [ExampleNFT](./example/src/ExampleNFT.sol).
+This example is from [ExampleSetupScript](./example/src/ExampleSetupScript.sol).
 
 ```solidity
 contract ExampleSetupScript is UpgradeScripts {
@@ -25,8 +25,9 @@ contract ExampleSetupScript is UpgradeScripts {
 
 Running this script on a live network will deploy the *implementation contract* and the *proxy contract* **once**.
 Re-running this script without the implementation having changed **won't do anything**.
-Re-running this script with a new implementation will deploy a new implementation contract and **update your existing proxy**
-to point to it.
+Re-running this script with a new implementation will detect the change and deploy a new implementation contract.
+It will perform a **storage layout compatibility check** and **update your existing proxy** to point to it.
+All *current* deployments are updated in `deployments/{chain}/deploy-latest.json`.
 
 
 ## Example Tutorial using Anvil
