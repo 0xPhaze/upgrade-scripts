@@ -59,7 +59,7 @@ UPGRADE_SCRIPTS_DRY_RUN=true forge script deploy --rpc-url http://127.0.0.1:8545
 to go through a "dry-run" of the deploy scripts.
 This connects to your running anvil node using the default account's private key.
 
-Add `--broadcast` and `--ffi` to the command to actually broadcast the transactions on-chain.
+Add `--broadcast` to the command to actually broadcast the transactions on-chain.
 ```sh
 forge script deploy --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --broadcast --ffi
 ```
@@ -134,8 +134,8 @@ In order to keep the deployment as close to the testing environment,
 it is generally helpful to share the same contract set-up scripts.
 
 To disable any additional checks or logs that are not necessary when running `forge test`,
-the function `__upgrade_scripts_init()` can be overridden to
-include `__UPGRADE_SCRIPTS_BYPASS = true;`. This can be seen in [ExampleNFT.t.sol](./example/test/ExampleNFT.t.sol).
+the function `upgradeScriptsInit()` can be overridden to
+include `UPGRADE_SCRIPTS_BYPASS = true;`. This can be seen in [ExampleNFT.t.sol](./example/test/ExampleNFT.t.sol).
 This bypasses all checks and simply deploys the contracts.
 
 ### Interacting with Deployed Contracts
