@@ -7,33 +7,7 @@ Scripts to automate keeping track of active deployments and upgrades. Allows for
 
 These scripts use [ERC1967Proxy](https://github.com/0xPhaze/UDS/blob/master/src/proxy/ERC1967Proxy.sol).
 
-## SetUpContract / SetUpProxy
-
-This will make sure that `MyContract` is deployed and kept up-to-date.
-If the `.creationCode` of `MyContract` ever changes, it will re-deploy the contract.
-The latest deployments are stored in `deployments/{chainid}/deploy-latest.json`
-with the contract's key being "MyContract".
-
-```solidity
-bytes memory creationCode = type(MyContract).creationCode;
-address addr = setUpContract("MyContract", creationCode);
-```
-
-Note: the hash of `.creationCode` is compared instead of `addr.codehash`, because
-this would not allow for reliable checks for contracts that use immutable variables that change for each implementation (such as using `address(this)` in EIP-2612's `DOMAIN_SEPARATOR`).
-
-Similarly, a proxy can be deployed and kept up-to-date via `setUpProxy`.
-
-```solidity
-bytes memory initCall = abi.encodeWithSelector(MyContract.init.selector);
-address proxy = setUpProxy("MyProxy", implementation, initCall);
-```
-
-Storage layout mappings are stored for each proxy implementation. These are used for
-storage layout compatibility checks when running upgrades.
-It is best to run through a complete example to understand when/how this is done.
-
-## Keep Proxies Updated
+## Example SetUp Script
 
 This example is from [ExampleSetupScript](./example/src/ExampleSetupScript.sol).
 
@@ -54,6 +28,33 @@ Re-running this script without the implementation having changed **won't do anyt
 Re-running this script with a new implementation will detect the change and deploy a new implementation contract.
 It will perform a **storage layout compatibility check** and **update your existing proxy** to point to it.
 All *current* deployments are updated in `deployments/{chainid}/deploy-latest.json`.
+
+
+## SetUpContract / SetUpProxy
+
+This will make sure that `MyContract` is deployed and kept up-to-date.
+If the `.creationCode` of `MyContract` ever changes, it will re-deploy the contract.
+The first argument ("MyContract") is the contract's "key" 
+which is used for display in the console and as an identifier in `deployments/{chainid}/deploy-latest.json`.
+
+```solidity
+bytes memory creationCode = type(MyContract).creationCode;
+address addr = setUpContract("MyContract", creationCode);
+```
+
+Note: the hash of `.creationCode` is compared instead of `addr.codehash`, because
+this would not allow for reliable checks for contracts that use immutable variables that change for each implementation (such as using `address(this)` in EIP-2612's `DOMAIN_SEPARATOR`).
+
+Similarly, a proxy can be deployed and kept up-to-date via `setUpProxy`.
+
+```solidity
+bytes memory initCall = abi.encodeWithSelector(MyContract.init.selector);
+address proxy = setUpProxy("MyProxy", implementation, initCall);
+```
+
+Storage layout mappings are stored for each proxy implementation. These are used for
+*storage layout compatibility* checks when running upgrades.
+It is best to run through a complete example to understand when/how this is done.
 
 
 ## Example Tutorial using Anvil
