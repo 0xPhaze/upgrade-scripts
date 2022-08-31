@@ -29,7 +29,9 @@ bytes memory initCall = abi.encodeWithSelector(MyContract.init.selector);
 address proxy = setUpProxy("MyProxy", implementation, initCall);
 ```
 
-It is best to go through a complete example.
+Storage layout mappings are stored for each proxy implementation. These are used for
+storage layout compatibility checks when running upgrades.
+It is best to run through a complete example to understand when/how this is done.
 
 ## Keep Proxies Updated
 
