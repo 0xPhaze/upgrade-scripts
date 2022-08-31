@@ -152,6 +152,42 @@ If we re-run the script now, it will deploy a new implementation, perform the up
 
 ## Extra Notes
 
+### Deploying Custom Proxies
+
+All functions in *UpgradeScripts* can be overridden.
+These functions in particular might be of interest to override.
+
+```
+    function getDeployProxyCode(address implementation, bytes memory initCall) internal virtual returns (bytes memory) {
+        // ...
+    }
+
+    function upgradeProxy(address proxy, address newImplementation) internal virtual {
+        // ...
+    }
+
+    function deployCode(bytes memory code) internal virtual returns (address addr) {
+        // ...
+    }
+```
+
+If wanting to deploy a custom proxy, `getDeployProxyCode` can be replaced.
+
+```
+    /// @dev code for constructing CustomERC1967Proxy(address implementation, bytes memory initCall)
+    function getDeployProxyCode(address implementation, bytes memory initCall) internal override returns (bytes memory) {
+        return abi.encodePacked(type(CustomERC1967Proxy).creationCode, abi.encode(implementation, initCall));
+    }
+```
+
+Or a different kind of function might be called for upgrades.
+
+```
+    function upgradeProxy(address proxy, address newImplementation) internal override {
+        MyUUPSUpgrade(proxy).upgrade(newImplementation);
+    }
+```
+
 ### Running on Mainnet
 If not running on a testnet, adding `CONFIRM_DEPLOYMENT=true CONFIRM_UPGRADE=true forge ...` might be necessary. This is an additional safety measure. 
 
