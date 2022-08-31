@@ -1,11 +1,11 @@
-# Upgrade Scripts (WIP)
+# Upgrade Scripts
 
 Scripts to automate keeping track of active deployments and upgrades. Allows for:
 - automatic contract deployments and proxy upgrades if the source has changed
 - keeping track of all latest deployments and having one set-up for unit-tests, deployments and interactions
 - storage layout compatibility checks on upgrades
 
-These scripts use [ERC1967Proxy](https://github.com/0xPhaze/UDS/blob/master/src/proxy/ERC1967Proxy.sol) (but the relevant functions can be overridden, see [Deploying Custom Proxies](###deploying-custom-proxies)).
+These scripts use [ERC1967Proxy](https://github.com/0xPhaze/UDS/blob/master/src/proxy/ERC1967Proxy.sol) (the relevant functions can, however, be overridden, see [deploying custom proxies](#deploying-custom-proxies)).
 
 ## Example SetUp Script
 
