@@ -7,6 +7,30 @@ Scripts to automate keeping track of active deployments and upgrades. Allows for
 
 These scripts use [ERC1967Proxy](https://github.com/0xPhaze/UDS/blob/master/src/proxy/ERC1967Proxy.sol).
 
+## SetUpContract / SetUpProxy
+
+This will make sure that `MyContract` is deployed and kept up-to-date.
+If the `.creationCode` of `MyContract` ever changes, it will re-deploy the contract.
+The latest deployments are stored in `deployments/{chainid}/deploy-latest.json`
+with the contract's key being "MyContract".
+
+```solidity
+bytes memory creationCode = type(MyContract).creationCode;
+address addr = setUpContract("MyContract", creationCode);
+```
+
+Note: the hash of `.creationCode` is compared instead of `addr.codehash`, because
+this would not allow for reliable checks for contracts that use immutable variables that change for each implementation (such as using `address(this)` in EIP-2612's `DOMAIN_SEPARATOR`).
+
+Similarly, a proxy can be deployed and kept up-to-date via `setUpProxy`.
+
+```solidity
+bytes memory initCall = abi.encodeWithSelector(MyContract.init.selector);
+address proxy = setUpProxy("MyProxy", implementation, initCall);
+```
+
+It is best to go through a complete example.
+
 ## Keep Proxies Updated
 
 This example is from [ExampleSetupScript](./example/src/ExampleSetupScript.sol).
@@ -17,8 +41,8 @@ contract ExampleSetupScript is UpgradeScripts {
 
     function setUpContracts() internal {
         bytes memory initCall = abi.encodeWithSelector(ExampleNFT.init.selector, "My NFT", "NFTX");
-        address implementation = setUpContract("myNFTLogic", "ExampleNFT", type(ExampleNFT).creationCode);
-        nft = ExampleNFT(setUpProxy("myNFT", "ExampleNFT", implementation, initCall));
+        address implementation = setUpContract("MyNFTLogic", type(ExampleNFT).creationCode);
+        nft = ExampleNFT(setUpProxy("ExampleNFT", implementation, initCall));
     }
 }
 ```
@@ -27,7 +51,7 @@ Running this script on a live network will deploy the *implementation contract* 
 Re-running this script without the implementation having changed **won't do anything**.
 Re-running this script with a new implementation will detect the change and deploy a new implementation contract.
 It will perform a **storage layout compatibility check** and **update your existing proxy** to point to it.
-All *current* deployments are updated in `deployments/{chain}/deploy-latest.json`.
+All *current* deployments are updated in `deployments/{chainid}/deploy-latest.json`.
 
 
 ## Example Tutorial using Anvil
