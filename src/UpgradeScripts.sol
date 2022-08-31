@@ -84,7 +84,7 @@ contract UpgradeScripts is Script {
         bytes memory creationCode,
         bool keepExisting
     ) internal virtual returns (address implementation) {
-        if (UPGRADE_SCRIPTS_BYPASS) return deployCode(creationCode);
+        if (UPGRADE_SCRIPTS_BYPASS) return deployCodeWrapper(creationCode);
         if (UPGRADE_SCRIPTS_ATTACH_ONLY) keepExisting = true;
 
         implementation = loadLatestDeployedAddress(key);
@@ -139,7 +139,11 @@ contract UpgradeScripts is Script {
         bytes memory initCall,
         bool keepExisting
     ) internal virtual returns (address proxy) {
-        if (UPGRADE_SCRIPTS_BYPASS) return deployProxy(implementation, initCall);
+        if (UPGRADE_SCRIPTS_BYPASS) {
+            assertIsERC1967Upgrade(implementation);
+
+            return deployProxy(implementation, initCall);
+        }
         if (UPGRADE_SCRIPTS_ATTACH_ONLY) keepExisting = true;
 
         proxy = loadLatestDeployedAddress(key);
@@ -147,10 +151,7 @@ contract UpgradeScripts is Script {
         if (proxy != address(0)) {
             address storedImplementation = loadProxyStoredImplementation(proxy);
 
-            // note: should be checking for `creationcodehash` instead (could lead to false positives).
-            // although if `setUpContract` (which checks `creationcodehash`)
-            // doesn't produce new implementation, then the address will remain the same.
-            if (firstTimeDeployed[implementation] || storedImplementation != implementation) {
+            if (storedImplementation != implementation) {
                 console.log("Existing %s needs upgrade.", proxyLabel(proxy, key, storedImplementation)); // prettier-ignore
 
                 if (keepExisting) {
@@ -162,15 +163,17 @@ contract UpgradeScripts is Script {
 
                     requireConfirmation("CONFIRM_UPGRADE");
 
-                    UUPSUpgrade(proxy).upgradeToAndCall(implementation, "");
+                    upgradeProxy(proxy, implementation);
                 }
             } else {
                 console.log("Stored %s up-to-date.", proxyLabel(proxy, key, implementation));
             }
         } else {
-            console.log("Existing Proxy::%s [%s] not found.", key, key);
+            console.log("Existing Proxy::%s() not found.", key);
 
             if (UPGRADE_SCRIPTS_ATTACH_ONLY) revert("Contract deployment is missing.");
+
+            assertIsERC1967Upgrade(implementation);
 
             proxy = confirmDeployProxy(implementation, initCall);
 
@@ -359,12 +362,9 @@ contract UpgradeScripts is Script {
     }
 
     // .codehash is an improper check for contracts that use immutables
-    // deploy = implementation.codehash != getCodeHash(creationCode);
     function creationCodeHashMatches(address addr, bytes32 newCreationCodeHash) internal virtual returns (bool) {
         string memory path = getCreationCodeHashFilePath(addr);
 
-        // try vm.parseJson(path, ".creationCodeHash") returns (bytes memory data) {
-        // bytes32 codehash = abi.decode(data, (bytes32));
         try vm.readFile(path) returns (string memory data) {
             bytes32 codehash = parseBytes32(data);
 
@@ -392,9 +392,14 @@ contract UpgradeScripts is Script {
 
     /* ------------- utils ------------- */
 
-    function deployProxy(address implementation, bytes memory initCall) internal virtual returns (address) {
-        assertIsERC1967Upgrade(implementation);
-        return deployCode(abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(implementation, initCall)));
+    /// @dev code for constructing ERC1967Proxy(address implementation, bytes memory initCall)
+    /// makes an initial delegatecall to `implementation` with calldata `initCall` (if `initCall` != "")
+    function getDeployProxyCode(address implementation, bytes memory initCall) internal virtual returns (bytes memory) {
+        return abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(implementation, initCall));
+    }
+
+    function upgradeProxy(address proxy, address newImplementation) internal virtual {
+        UUPSUpgrade(proxy).upgradeToAndCall(newImplementation, "");
     }
 
     function deployCode(bytes memory code) internal virtual returns (address addr) {
@@ -402,20 +407,27 @@ contract UpgradeScripts is Script {
             addr := create(0, add(code, 0x20), mload(code))
         }
 
-        firstTimeDeployed[addr] = true;
-
         require(addr.code.length != 0, "Failed to deploy code.");
     }
 
-    function confirmDeployProxy(address implementation, bytes memory initCall) internal virtual returns (address) {
-        return
-            confirmDeployCode(abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(implementation, initCall)));
+    function deployCodeWrapper(bytes memory code) internal virtual returns (address addr) {
+        addr = deployCode(code);
+
+        firstTimeDeployed[addr] = true;
     }
 
-    function confirmDeployCode(bytes memory code) internal virtual returns (address addr) {
+    function deployProxy(address implementation, bytes memory initCall) internal virtual returns (address) {
+        return deployCodeWrapper(getDeployProxyCode(implementation, initCall));
+    }
+
+    function confirmDeployProxy(address implementation, bytes memory initCall) internal virtual returns (address) {
+        return confirmDeployCode(getDeployProxyCode(implementation, initCall));
+    }
+
+    function confirmDeployCode(bytes memory code) internal virtual returns (address) {
         requireConfirmation("CONFIRM_DEPLOYMENT");
 
-        addr = deployCode(code);
+        return deployCodeWrapper(code);
     }
 
     function requireConfirmation(string memory variable) internal virtual {
@@ -446,11 +458,14 @@ contract UpgradeScripts is Script {
         }
     }
 
-    // TODO add more chains
     function isTestnet() internal view virtual returns (bool) {
-        if (block.chainid == 4) return true;
-        if (block.chainid == 3_1337) return true;
-        if (block.chainid == 80_001) return true;
+        if (block.chainid == 4) return true; // Rinkeby
+        if (block.chainid == 5) return true; // Goerli
+        if (block.chainid == 420) return true; // Optimism
+        if (block.chainid == 3_1337) return true; // Anvil
+        if (block.chainid == 80_001) return true; // Mumbai
+        if (block.chainid == 421_611) return true; // Arbitrum
+        if (block.chainid == 111_55_111) return true; // Sepolia
         return false;
     }
 
