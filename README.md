@@ -157,7 +157,7 @@ If we re-run the script now, it will deploy a new implementation, perform the up
 All functions in *UpgradeScripts* can be overridden.
 These functions in particular might be of interest to override.
 
-```
+```solidity
     function getDeployProxyCode(address implementation, bytes memory initCall) internal virtual returns (bytes memory) {
         // ...
     }
@@ -173,7 +173,7 @@ These functions in particular might be of interest to override.
 
 If wanting to deploy a custom proxy, `getDeployProxyCode` can be replaced.
 
-```
+```solidity
     /// @dev code for constructing CustomERC1967Proxy(address implementation, bytes memory initCall)
     function getDeployProxyCode(address implementation, bytes memory initCall) internal override returns (bytes memory) {
         return abi.encodePacked(type(CustomERC1967Proxy).creationCode, abi.encode(implementation, initCall));
@@ -182,7 +182,7 @@ If wanting to deploy a custom proxy, `getDeployProxyCode` can be replaced.
 
 Or a different kind of function might be called for upgrades.
 
-```
+```solidity
     function upgradeProxy(address proxy, address newImplementation) internal override {
         MyUUPSUpgrade(proxy).upgrade(newImplementation);
     }
