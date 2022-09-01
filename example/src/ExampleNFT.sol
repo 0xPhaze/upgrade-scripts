@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import {ERC721UDS} from "UDS/tokens/ERC721UDS.sol";
@@ -7,8 +7,13 @@ import {UUPSUpgrade} from "UDS/proxy/UUPSUpgrade.sol";
 
 contract ExampleNFT is UUPSUpgrade, ERC721UDS, OwnableUDS {
     uint256 totalSupply;
-
     // uint256 public contractId = 1;
+
+    uint256 public immutable version;
+
+    constructor(uint256 version_) {
+        version = version_;
+    }
 
     function init(string calldata name, string calldata symbol) external initializer {
         __Ownable_init();
