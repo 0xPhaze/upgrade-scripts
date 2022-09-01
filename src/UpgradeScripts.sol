@@ -26,6 +26,7 @@ contract UpgradeScripts is Script {
     bool __latestDeploymentsJsonLoaded;
 
     ContractData[] registeredContracts; // contracts registered through `setUpContract` or `setUpProxy`
+    mapping(address => string) contractName; // address => name mapping
 
     mapping(address => bool) firstTimeDeployed; // set to true for contracts that are just deployed; useful for inits
     mapping(address => bool) storageLayoutGenerated; // cache to not repeat slow layout generation
@@ -71,44 +72,39 @@ contract UpgradeScripts is Script {
 
     /* ------------- setUp ------------- */
 
-    function setUpContract(string memory key, bytes memory creationCode)
-        internal
-        virtual
-        returns (address implementation)
-    {
-        return setUpContract(key, creationCode, false);
-    }
-
     function setUpContract(
+        string memory name,
+        bytes memory constructorArgs,
         string memory key,
-        bytes memory creationCode,
-        bool keepExisting
+        bool attachOnly
     ) internal virtual returns (address implementation) {
-        if (UPGRADE_SCRIPTS_BYPASS) return deployCodeWrapper(creationCode);
-        if (UPGRADE_SCRIPTS_ATTACH_ONLY) keepExisting = true;
+        bytes memory creationCode = abi.encodePacked(vm.getCode(name), constructorArgs);
 
-        implementation = loadLatestDeployedAddress(key);
+        if (UPGRADE_SCRIPTS_BYPASS) return deployCodeWrapper(creationCode);
+        if (UPGRADE_SCRIPTS_ATTACH_ONLY) attachOnly = true;
+
+        implementation = loadLatestDeployedAddress(name);
 
         bool deployNew;
 
         if (implementation != address(0)) {
             if (implementation.code.length == 0) {
-                console.log("Stored %s does not contain code.", label(key, implementation));
+                console.log("Stored %s does not contain code.", label(name, implementation));
                 console.log("Make sure '%s' contains all the latest deployments.", getDeploymentsPath("deploy-latest.json")); // prettier-ignore
 
                 revert("Invalid contract address.");
             }
 
             if (creationCodeHashMatches(implementation, keccak256(creationCode))) {
-                console.log("Stored %s up-to-date.", label(key, implementation));
+                console.log("Stored %s up-to-date.", label(name, implementation));
             } else {
-                console.log("Implementation for %s changed.", label(key, implementation));
+                console.log("Implementation for %s changed.", label(name, implementation));
 
-                if (keepExisting) console.log("Keeping existing deployment.");
+                if (attachOnly) console.log("Keeping existing deployment (`attachOnly=true`).");
                 else deployNew = true;
             }
         } else {
-            console.log("Implementation for `%s` not found.", key);
+            console.log("Implementation for `%s` not found.", name);
             deployNew = true;
 
             if (UPGRADE_SCRIPTS_ATTACH_ONLY) revert("Contract deployment is missing.");
@@ -117,12 +113,28 @@ contract UpgradeScripts is Script {
         if (deployNew) {
             implementation = confirmDeployCode(creationCode);
 
-            console.log("=> new %s.\n", label(key, implementation));
+            console.log("=> new %s.\n", label(name, implementation));
 
             saveCreationCodeHash(implementation, keccak256(creationCode));
         }
 
-        registerContract(key, implementation);
+        registerContract(name, implementation);
+    }
+
+    function setUpContract(
+        string memory name,
+        bytes memory constructorArgs,
+        string memory key
+    ) internal virtual returns (address implementation) {
+        return setUpContract(name, constructorArgs, key, false);
+    }
+
+    function setUpContract(string memory name, bytes memory constructorArgs)
+        internal
+        virtual
+        returns (address implementation)
+    {
+        return setUpContract(name, constructorArgs, "", false);
     }
 
     function setUpProxy(
@@ -225,6 +237,11 @@ contract UpgradeScripts is Script {
     /* ------------- contract registry ------------- */
 
     function registerContract(string memory name, address addr) internal virtual {
+        // if (bytes(contractName[addr]).length != 0) {
+        //     console.log('Duplicate key found when registering contract)
+        // }
+        contractName[addr] = name;
+
         registeredContracts.push(ContractData({name: name, addr: addr}));
     }
 
@@ -287,7 +304,7 @@ contract UpgradeScripts is Script {
         if (storageLayoutGenerated[implementation]) return;
 
         if (!isFFIEnabled()) {
-            return console.log("SKIPPING storage layout mapping for %s (FFI=false).\n", label(contractName, implementation)); // prettier-ignore
+            return console.log("SKIPPING storage layout mapping for %s (`FFI=false`).\n", label(contractName, implementation)); // prettier-ignore
         }
 
         console.log("Generating storage layout mapping for %s.\n", label(contractName, implementation));
@@ -311,10 +328,10 @@ contract UpgradeScripts is Script {
         address newImplementation
     ) internal virtual {
         if (isUpgradeSafe[oldImplementation][newImplementation]) {
-            return console.log("Storage layout compatibility check [%s <-> %s]: pass (`isUpgradeSafe=true` set)", oldImplementation, newImplementation); // prettier-ignore
+            return console.log("Storage layout compatibility check [%s <-> %s]: pass (`isUpgradeSafe=true`)", oldImplementation, newImplementation); // prettier-ignore
         }
         if (!isFFIEnabled()) {
-            return console.log("SKIPPING storage layout compatibility check [%s <-> %s] (FFI=false).", oldImplementation, newImplementation); // prettier-ignore
+            return console.log("SKIPPING storage layout compatibility check [%s <-> %s] (`FFI=false`).", oldImplementation, newImplementation); // prettier-ignore
         }
 
         generateStorageLayoutFile(contractName, newImplementation);
@@ -394,7 +411,12 @@ contract UpgradeScripts is Script {
 
     /// @dev code for constructing ERC1967Proxy(address implementation, bytes memory initCall)
     /// makes an initial delegatecall to `implementation` with calldata `initCall` (if `initCall` != "")
-    function getDeployProxyCode(address implementation, bytes memory initCall) internal virtual returns (bytes memory) {
+    function getDeployProxyCode(address implementation, bytes memory initCall)
+        internal
+        pure
+        virtual
+        returns (bytes memory)
+    {
         return abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(implementation, initCall));
     }
 
@@ -406,14 +428,14 @@ contract UpgradeScripts is Script {
         assembly {
             addr := create(0, add(code, 0x20), mload(code))
         }
-
-        require(addr.code.length != 0, "Failed to deploy code.");
     }
 
     function deployCodeWrapper(bytes memory code) internal virtual returns (address addr) {
         addr = deployCode(code);
 
         firstTimeDeployed[addr] = true;
+
+        require(addr.code.length != 0, "Failed to deploy code.");
     }
 
     function deployProxy(address implementation, bytes memory initCall) internal virtual returns (address) {
