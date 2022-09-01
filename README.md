@@ -16,8 +16,9 @@ contract ExampleSetupScript is UpgradeScripts {
     ExampleNFT nft;
 
     function setUpContracts() internal {
-        bytes memory initCall = abi.encodeWithSelector(ExampleNFT.init.selector, "My NFT", "NFTX");
         address implementation = setUpContract("ExampleNFT");
+
+        bytes memory initCall = abi.encodeWithSelector(ExampleNFT.init.selector, "My NFT", "NFTX");
         nft = ExampleNFT(setUpProxy("ExampleNFT", implementation, initCall));
     }
 }
@@ -34,26 +35,34 @@ All *current* deployments are updated in `deployments/{chainid}/deploy-latest.js
 
 This will make sure that `MyContract` is deployed and kept up-to-date.
 If the `.creationCode` of `MyContract` ever changes, it will re-deploy the contract.
-The first argument ("MyContract") is the contract's "key" 
-which is used for display in the console and as an identifier in `deployments/{chainid}/deploy-latest.json`.
+The hash of `.creationCode` is compared instead of `addr.codehash`, because
+this would not allow for reliable checks for contracts that use immutable variables that change for each implementation (such as using `address(this)` in EIP-2612's `DOMAIN_SEPARATOR`).
 
 ```solidity
-bytes memory creationCode = type(MyContract).creationCode;
-address addr = setUpContract("MyContract", creationCode);
+string memory contractName = "MyContract"; // needs to be unique
+bytes memory constructorArgs = abi.encode(arg1, arg2); // abi-encoded args (if any)
+string memory key = "MyContractImplementation"; // identifier/key to be used for json
+bool attachOnly = false; // don't deploy, only read from latest-deployment and "attach"
+
+address contract = setUpContract(contractName, constructorArgs, key, attachOnly);
 ```
 
-Note: the hash of `.creationCode` is compared instead of `addr.codehash`, because
-this would not allow for reliable checks for contracts that use immutable variables that change for each implementation (such as using `address(this)` in EIP-2612's `DOMAIN_SEPARATOR`).
+`key` (defaults to `contractName`) is used for display in the console and as an identifier in `deployments/{chainid}/deploy-latest.json`.
+
 
 Similarly, a proxy can be deployed and kept up-to-date via `setUpProxy`.
 
 ```solidity
-bytes memory initCall = abi.encodeWithSelector(MyContract.init.selector);
-address proxy = setUpProxy("MyProxy", implementation, initCall);
+string memory contractName = "MyContract"; // the implementation's contract name
+bytes memory initCall = abi.encodeWithSelector(MyContract.init.selector); // data to pass to proxy for making an initial call during deployment
+string memory key = "MyContractProxy"; // identifier/key to be used for json
+bool attachOnly = false;
+
+address proxy = setUpProxy(contractName, contractImplementation, initCall, key, attachOnly);
 ```
 
-Storage layout mappings are stored for each proxy implementation. These are used for
-*storage layout compatibility* checks when running upgrades.
+Storage layout mappings are stored for each proxy implementation (which is why `contractName` is required). 
+These are used for *storage layout compatibility* checks when running upgrades.
 It is best to run through a complete example to understand when/how this is done.
 
 
@@ -61,39 +70,39 @@ It is best to run through a complete example to understand when/how this is done
 
 First, make sure [Foundry](https://book.getfoundry.sh) is installed.
 
-Clone the repository:
+1. Clone the repository:
 ```sh
 git clone https://github.com/0xPhaze/upgrade-scripts
 ```
 
-Navigate to the example directory and install the dependencies
+2. Navigate to the example directory and install the dependencies
 ```sh
 cd upgrade-scripts/example
 forge install
 ```
 
-Spin up a local anvil node **in a second terminal**.
+3. Spin up a local anvil node **in a second terminal**.
 ```sh
 anvil
 ```
 
 Read through [deploy.s.sol](./example/script/deploy.s.sol) before running random scripts from the internet using `--ffi`.
 
-In the example project root, run
+4. In the example project root, run
 ```sh
 UPGRADE_SCRIPTS_DRY_RUN=true forge script deploy --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --ffi
 ```
 to go through a "dry-run" of the deploy scripts.
 This connects to your running anvil node using the default account's private key.
 
-Add `--broadcast` to the command to actually broadcast the transactions on-chain.
+5. Add `--broadcast` to the command to actually broadcast the transactions on-chain.
 ```sh
 forge script deploy --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --broadcast --ffi
 ```
 
 After a successful run, it should have created the file `./example/deployments/31337/deploy-latest.json` which keeps track of your up-to-date deployments. It also saves the contracts *creation code hash* and its *storage layout*.
 
-Try running the command again. 
+6. Try running the command again. 
 It will detect that no implementation has changed and thus not create any new transactions.
 
 ## Upgrading a Proxy Implementation
@@ -158,17 +167,17 @@ All functions in *UpgradeScripts* can be overridden.
 These functions in particular might be of interest to override.
 
 ```solidity
-    function getDeployProxyCode(address implementation, bytes memory initCall) internal virtual returns (bytes memory) {
-        // ...
-    }
+ function getDeployProxyCode(address implementation, bytes memory initCall) internal virtual returns (bytes memory) {
+     // ...
+ }
 
-    function upgradeProxy(address proxy, address newImplementation) internal virtual {
-        // ...
-    }
+ function upgradeProxy(address proxy, address newImplementation) internal virtual {
+     // ...
+ }
 
-    function deployCode(bytes memory code) internal virtual returns (address addr) {
-        // ...
-    }
+ function deployCode(bytes memory code) internal virtual returns (address addr) {
+     // ...
+ }
 ```
 
 See [exampleOZ/src/ExampleSetupScript.sol](./exampleOz/src/ExampleSetupScript.sol) for a

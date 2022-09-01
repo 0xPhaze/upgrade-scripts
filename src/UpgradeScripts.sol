@@ -73,21 +73,10 @@ contract UpgradeScripts is Script {
 
     /* ------------- setUp ------------- */
 
-    function getContractCode(string memory contractName) internal virtual returns (bytes memory code) {
-        string memory artifact = string.concat(contractName, ".sol");
-        try vm.getCode(artifact) returns (bytes memory code_) {
-            if (code_.length != 0) code = code_;
-        } catch {}
-        if (code.length == 0) {
-            console.log("Unable to find contract named '%s'.", contractName);
-            revert("Contract does not exist.");
-        }
-    }
-
     function setUpContract(
-        string memory key,
         string memory contractName,
         bytes memory constructorArgs,
+        string memory key,
         bool attachOnly
     ) internal virtual returns (address implementation) {
         bytes memory creationCode = abi.encodePacked(getContractCode(contractName), constructorArgs);
@@ -135,31 +124,11 @@ contract UpgradeScripts is Script {
         registerContract(keyOrContractName, implementation);
     }
 
-    function setUpContract(
-        string memory key,
-        string memory contractName,
-        bytes memory constructorArgs
-    ) internal virtual returns (address implementation) {
-        return setUpContract(key, contractName, constructorArgs, false);
-    }
-
-    function setUpContract(string memory contractName, bytes memory constructorArgs)
-        internal
-        virtual
-        returns (address implementation)
-    {
-        return setUpContract("", contractName, constructorArgs, false);
-    }
-
-    function setUpContract(string memory contractName) internal virtual returns (address implementation) {
-        return setUpContract("", contractName, "", false);
-    }
-
     function setUpProxy(
-        string memory key,
         string memory contractName,
         address implementation,
         bytes memory initCall,
+        string memory key,
         bool attachOnly
     ) internal virtual returns (address proxy) {
         if (UPGRADE_SCRIPTS_BYPASS) {
@@ -210,52 +179,47 @@ contract UpgradeScripts is Script {
         registerContract(keyOrContractName, proxy);
     }
 
+    /* ------------- overloads ------------- */
+
+    function setUpContract(
+        string memory contractName,
+        bytes memory constructorArgs,
+        string memory key
+    ) internal virtual returns (address) {
+        return setUpContract(contractName, constructorArgs, key, false);
+    }
+
+    function setUpContract(string memory contractName) internal virtual returns (address) {
+        return setUpContract(contractName, "", "", false);
+    }
+
+    function setUpContract(string memory contractName, bytes memory constructorArgs)
+        internal
+        virtual
+        returns (address)
+    {
+        return setUpContract(contractName, constructorArgs, "", false);
+    }
+
     function setUpProxy(
-        string memory key,
+        string memory contractName,
+        address implementation,
+        bytes memory initCall,
+        string memory key
+    ) internal virtual returns (address) {
+        return setUpProxy(contractName, implementation, initCall, key, false);
+    }
+
+    function setUpProxy(
         string memory contractName,
         address implementation,
         bytes memory initCall
     ) internal virtual returns (address) {
-        return setUpProxy(key, contractName, implementation, initCall, false);
-    }
-
-    function setUpProxy(
-        string memory key,
-        string memory contractName,
-        address implementation
-    ) internal virtual returns (address) {
-        return setUpProxy(key, contractName, implementation, "", false);
+        return setUpProxy(contractName, implementation, initCall, "", false);
     }
 
     function setUpProxy(string memory contractName, address implementation) internal virtual returns (address) {
-        return setUpProxy("", contractName, implementation, "", false);
-    }
-
-    function setUpProxy(
-        string memory contractName,
-        address implementation,
-        bytes memory initCall
-    ) internal virtual returns (address) {
-        return setUpProxy("", contractName, implementation, initCall, false);
-    }
-
-    function loadLatestDeployedAddress(string memory key) internal virtual returns (address addr) {
-        if (!__latestDeploymentsJsonLoaded) {
-            // try reading and caching file containing latest deployments
-            try vm.readFile(getDeploymentsPath("deploy-latest.json")) returns (string memory json) {
-                __latestDeploymentsJson = json;
-            } catch {}
-            __latestDeploymentsJsonLoaded = true;
-        }
-
-        if (bytes(__latestDeploymentsJson).length == 0) return addr;
-
-        // try vm.parseJson(json, string.concat(".", key)) returns (bytes memory data) {
-        try VmParseJson(address(vm)).parseJson(__latestDeploymentsJson, string.concat(".", key)) returns (
-            bytes memory data
-        ) {
-            if (data.length == 32) return abi.decode(data, (address));
-        } catch {}
+        return setUpProxy(contractName, implementation, "", "", false);
     }
 
     /* ------------- filePath ------------- */
@@ -331,6 +295,19 @@ contract UpgradeScripts is Script {
 
     /* ------------- snippets ------------- */
 
+    function getContractCode(string memory contractName) internal virtual returns (bytes memory code) {
+        string memory artifact = string.concat(contractName, ".sol");
+
+        try vm.getCode(artifact) returns (bytes memory code_) {
+            code = code_;
+        } catch {}
+
+        if (code.length == 0) {
+            console.log("Unable to find contract named '%s'.", contractName);
+            revert("Contract does not exist.");
+        }
+    }
+
     function startBroadcastIfNotDryRun() internal {
         if (!UPGRADE_SCRIPTS_DRY_RUN) {
             vm.startBroadcast();
@@ -342,6 +319,24 @@ contract UpgradeScripts is Script {
             vm.stopBroadcast();
             vm.startPrank(tx.origin);
         }
+    }
+
+    function loadLatestDeployedAddress(string memory key) internal virtual returns (address addr) {
+        if (!__latestDeploymentsJsonLoaded) {
+            // try reading and caching file containing latest deployments
+            try vm.readFile(getDeploymentsPath("deploy-latest.json")) returns (string memory json) {
+                __latestDeploymentsJson = json;
+            } catch {}
+            __latestDeploymentsJsonLoaded = true;
+        }
+
+        if (bytes(__latestDeploymentsJson).length == 0) return addr;
+
+        try VmParseJson(address(vm)).parseJson(__latestDeploymentsJson, string.concat(".", key)) returns (
+            bytes memory data
+        ) {
+            if (data.length == 32) return abi.decode(data, (address));
+        } catch {}
     }
 
     function generateStorageLayoutFile(string memory contractName, address implementation) internal virtual {
