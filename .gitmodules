@@ -10,6 +10,3 @@
 [submodule "lib/UDS"]
 	path = lib/UDS
 	url = https://github.com/0xPhaze/UDS
-[submodule "example/lib/openzeppelin-contracts"]
-	path = example/lib/openzeppelin-contracts
-	url = https://github.com/OpenZeppelin/openzeppelin-contracts
