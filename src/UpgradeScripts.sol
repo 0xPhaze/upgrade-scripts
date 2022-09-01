@@ -182,7 +182,7 @@ contract UpgradeScripts is Script {
                 if (attachOnly) {
                     console.log("Keeping existing implementation.");
                 } else {
-                    upgradeSafetyChecks(key, storedImplementation, implementation);
+                    upgradeSafetyChecks(contractName, storedImplementation, implementation);
 
                     console.log("Upgrading %s.\n", proxyLabel(proxy, contractName, implementation, key));
 
@@ -378,7 +378,6 @@ contract UpgradeScripts is Script {
         try vm.ffi(script) returns (bytes memory res) {
             if (bytes(res).length != 0) {
                 exists = true;
-                console.log("assertFileExists got", string(res));
             }
         } catch {}
 

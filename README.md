@@ -171,22 +171,9 @@ These functions in particular might be of interest to override.
     }
 ```
 
-If wanting to deploy a custom proxy, `getDeployProxyCode` can be replaced.
+See [exampleOZ/src/ExampleSetupScript.sol](./exampleOz/src/ExampleSetupScript.sol) for a
+complete example using OpenZeppelin's upgradeable contracts.
 
-```solidity
-    /// @dev code for constructing CustomERC1967Proxy(address implementation, bytes memory initCall)
-    function getDeployProxyCode(address implementation, bytes memory initCall) internal override returns (bytes memory) {
-        return abi.encodePacked(type(CustomERC1967Proxy).creationCode, abi.encode(implementation, initCall));
-    }
-```
-
-Or a different kind of function might be called for upgrades.
-
-```solidity
-    function upgradeProxy(address proxy, address newImplementation) internal override {
-        MyUUPSUpgrade(proxy).upgrade(newImplementation);
-    }
-```
 
 ### Running on Mainnet
 If not running on a testnet, adding `CONFIRM_DEPLOYMENT=true CONFIRM_UPGRADE=true forge ...` might be necessary. This is an additional safety measure. 

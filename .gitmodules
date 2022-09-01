@@ -10,3 +10,9 @@
 [submodule "lib/UDS"]
 	path = lib/UDS
 	url = https://github.com/0xPhaze/UDS
+[submodule "exampleOZ/lib/openzeppelin-contracts-upgradeable"]
+	path = exampleOZ/lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/Openzeppelin/openzeppelin-contracts-upgradeable
+[submodule "exampleOZ/lib/openzeppelin-contracts"]
+	path = exampleOZ/lib/openzeppelin-contracts
+	url = https://github.com/Openzeppelin/openzeppelin-contracts
