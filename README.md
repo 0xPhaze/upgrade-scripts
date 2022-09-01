@@ -1,4 +1,4 @@
-# Upgrade Scripts
+# Upgrade Scripts (WIP)
 
 Scripts to automate keeping track of active deployments and upgrades. Allows for:
 - automatic contract deployments and proxy upgrades if the source has changed
@@ -253,7 +253,7 @@ Make sure you understand what the scripts are doing. I am not responsible for an
 
 Note that, it currently is not possible to detect whether `--broadcast` is enabled.
 Thus the script can't reliably detect whether the transactions are only simulated or sent
-on-chain. For that reason, `UPGRADE_SCRIPT_DRY_RUN=true` must ALWAYS be set when `--broadcast` is passed in.
+on-chain. For that reason, when `--broadcast` is not set, `UPGRADE_SCRIPT_DRY_RUN=true` must ALWAYS passed in.
 Otherwise this will update `deploy-latest.json` with addresses that haven't actually been deployed yet and will complain on the next run.
 
 When `deploy-latest.json` was updated with incorrect addresses for this reason, just delete the file and the incorrect previously created `deploy-{latestTimestamp}.json` (containing the highest latest timestamp) and copy the correct `.json` (second highest timestamp) to `deploy-latest.json`.
