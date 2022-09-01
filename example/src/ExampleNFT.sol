@@ -7,9 +7,9 @@ import {UUPSUpgrade} from "UDS/proxy/UUPSUpgrade.sol";
 
 contract ExampleNFT is UUPSUpgrade, ERC721UDS, OwnableUDS {
     uint256 totalSupply;
-    // uint256 public contractId = 1;
-
     uint256 public immutable version;
+
+    // uint256 public contractId = 1;
 
     constructor(uint256 version_) {
         version = version_;
