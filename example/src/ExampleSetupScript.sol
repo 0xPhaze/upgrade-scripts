@@ -1,10 +1,8 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "forge-std/Script.sol";
-
-import "upgrade-scripts/UpgradeScripts.sol";
-import "./ExampleNFT.sol";
+import {ExampleNFT} from "./ExampleNFT.sol";
+import {UpgradeScripts} from "upgrade-scripts/UpgradeScripts.sol";
 
 contract ExampleSetupScript is UpgradeScripts {
     ExampleNFT nft;
@@ -12,8 +10,10 @@ contract ExampleSetupScript is UpgradeScripts {
     function setUpContracts() internal {
         // if the constructor takes any arguments use:
         // bytes memory creationCode = abi.encodePacked(type(ExampleNFT).creationCode, abi.encode(arg1, arg2));
-        bytes memory creationCode = type(ExampleNFT).creationCode;
-        address implementation = setUpContract("MyNFTLogic", creationCode);
+        // bytes memory creationCode = type(ExampleNFT).creationCode;
+
+        bytes memory constructorArgs = abi.encode(uint256(1));
+        address implementation = setUpContract("ExampleNFT", constructorArgs);
 
         // encode `ExampleNFT.init("My NFT", "NFTX")`
         bytes memory initCall = abi.encodeWithSelector(ExampleNFT.init.selector, "My NFT", "NFTX");
