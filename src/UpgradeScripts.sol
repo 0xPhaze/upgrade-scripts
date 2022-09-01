@@ -295,24 +295,10 @@ contract UpgradeScripts is Script {
 
     /* ------------- snippets ------------- */
 
-    function getContractCode(string memory contractName) internal virtual returns (bytes memory code) {
-        string memory artifact = string.concat(contractName, ".sol");
-
-        try vm.getCode(artifact) returns (bytes memory code_) {
-            code = code_;
-        } catch {}
-
-        if (code.length == 0) {
-            console.log("Unable to find contract named '%s'.", contractName);
-            revert("Contract does not exist.");
-        }
-    }
-
     function startBroadcastIfNotDryRun() internal {
         if (!UPGRADE_SCRIPTS_DRY_RUN) {
             vm.startBroadcast();
         } else {
-            // console.log('FFI disabled: run again with `--ffi` to save deployments and run storage compatibility checks.'); // prettier-ignore
             console.log("Disabling `vm.broadcast` (dry-run).\n");
 
             // need to start prank instead now to be consistent in "dry-run"
@@ -323,7 +309,6 @@ contract UpgradeScripts is Script {
 
     function loadLatestDeployedAddress(string memory key) internal virtual returns (address addr) {
         if (!__latestDeploymentsJsonLoaded) {
-            // try reading and caching file containing latest deployments
             try vm.readFile(getDeploymentsPath("deploy-latest.json")) returns (string memory json) {
                 __latestDeploymentsJson = json;
             } catch {}
@@ -337,6 +322,24 @@ contract UpgradeScripts is Script {
         ) {
             if (data.length == 32) return abi.decode(data, (address));
         } catch {}
+    }
+
+    function loadProxyStoredImplementation(address proxy) internal virtual returns (address implementation) {
+        require(proxy.code.length != 0, string.concat("No code stored at ", vm.toString(proxy)));
+
+        try vm.load(proxy, ERC1967_PROXY_STORAGE_SLOT) returns (bytes32 data) {
+            implementation = address(uint160(uint256(data)));
+            require(
+                implementation != address(0),
+                string.concat("Invalid existing implementation address (0) for proxy ", vm.toString(proxy))
+            );
+            require(
+                UUPSUpgrade(implementation).proxiableUUID() == ERC1967_PROXY_STORAGE_SLOT,
+                string.concat("Invalid proxiable UUID for implementation ", vm.toString(implementation))
+            );
+        } catch {
+            console.log("Contract %s not identified as a proxy", proxy);
+        }
     }
 
     function generateStorageLayoutFile(string memory contractName, address implementation) internal virtual {
@@ -362,24 +365,6 @@ contract UpgradeScripts is Script {
         vm.writeFile(getStorageLayoutFilePath(implementation), string(out));
 
         storageLayoutGenerated[implementation] = true;
-    }
-
-    function assertFileExists(string memory file) internal virtual {
-        string[] memory script = new string[](2);
-        script[0] = "ls";
-        script[1] = file;
-
-        bool exists;
-        try vm.ffi(script) returns (bytes memory res) {
-            if (bytes(res).length != 0) {
-                exists = true;
-            }
-        } catch {}
-
-        if (!exists) {
-            console.log("Unable to locate file '%s'.", file);
-            revert("File does not exist.");
-        }
     }
 
     function upgradeSafetyChecks(
@@ -434,8 +419,6 @@ contract UpgradeScripts is Script {
 
         string memory path = getCreationCodeHashFilePath(addr);
 
-        // console.log(string.concat("Saving creation code hash for ", vm.toString(addr), "."));
-
         vm.writeFile(path, vm.toString(creationCodeHash));
     }
 
@@ -446,29 +429,42 @@ contract UpgradeScripts is Script {
         try vm.readFile(path) returns (string memory data) {
             bytes32 codehash = parseBytes32(data);
 
-            if (codehash == newCreationCodeHash) {
-                // console.log(string.concat("Found matching codehash (", vm.toString(codehash), ") for"), addr);
+            return codehash == newCreationCodeHash;
+        } catch {}
 
-                return true;
-            } else {
-                // console.log(string.concat("Existing codehash (", vm.toString(codehash), "), does not match new codehash (", vm.toString(newCreationCodeHash), ") for"), addr); // prettier-ignore
-            }
-        } catch {
-            // console.log("Could not find existing codehash for", addr);
-        }
         return false;
     }
 
-    function mkdir(string memory path) internal virtual {
-        string[] memory script = new string[](3);
-        script[0] = "mkdir";
-        script[1] = "-p";
-        script[2] = path;
-
-        vm.ffi(script);
+    function assertIsERC1967Upgrade(address implementation) internal virtual {
+        if (implementation.code.length == 0) {
+            console.log("No code stored at %s.", implementation);
+            revert("Invalid contract address.");
+        }
+        try UUPSUpgrade(implementation).proxiableUUID() returns (bytes32 uuid) {
+            if (uuid != ERC1967_PROXY_STORAGE_SLOT) {
+                console.log("Invalid proxiable UUID for implementation %s.", implementation);
+                revert("Contract not upgradeable.");
+            }
+        } catch {
+            console.log("Contract %s does not implement proxiableUUID().", implementation);
+            revert("Contract not upgradeable.");
+        }
     }
 
     /* ------------- utils ------------- */
+
+    function getContractCode(string memory contractName) internal virtual returns (bytes memory code) {
+        string memory artifact = string.concat(contractName, ".sol");
+
+        try vm.getCode(artifact) returns (bytes memory code_) {
+            code = code_;
+        } catch {}
+
+        if (code.length == 0) {
+            console.log("Unable to find contract named '%s'.", contractName);
+            revert("Contract does not exist.");
+        }
+    }
 
     /// @dev code for constructing ERC1967Proxy(address implementation, bytes memory initCall)
     /// makes an initial delegatecall to `implementation` with calldata `initCall` (if `initCall` != "")
@@ -526,8 +522,10 @@ contract UpgradeScripts is Script {
 
             if (!UPGRADE_SCRIPTS_DRY_RUN) {
                 console.log("Disabling `vm.broadcast`, continuing as dry-run.\n");
+
                 UPGRADE_SCRIPTS_DRY_RUN = true;
             }
+
             // need to start prank instead now to be consistent in "dry-run"
             vm.stopBroadcast();
             vm.stopPrank();
@@ -538,6 +536,24 @@ contract UpgradeScripts is Script {
     function hasCode(address addr) internal view virtual returns (bool hasCode_) {
         assembly {
             hasCode_ := iszero(iszero(extcodesize(addr)))
+        }
+    }
+
+    function assertFileExists(string memory file) internal virtual {
+        string[] memory script = new string[](2);
+        script[0] = "ls";
+        script[1] = file;
+
+        bool exists;
+        try vm.ffi(script) returns (bytes memory res) {
+            if (bytes(res).length != 0) {
+                exists = true;
+            }
+        } catch {}
+
+        if (!exists) {
+            console.log("Unable to locate file '%s'.", file);
+            revert("File does not exist.");
         }
     }
 
@@ -562,38 +578,13 @@ contract UpgradeScripts is Script {
         }
     }
 
-    function assertIsERC1967Upgrade(address implementation) internal virtual {
-        if (implementation.code.length == 0) {
-            console.log("No code stored at %s.", implementation);
-            revert("Invalid contract address.");
-        }
-        try UUPSUpgrade(implementation).proxiableUUID() returns (bytes32 uuid) {
-            if (uuid != ERC1967_PROXY_STORAGE_SLOT) {
-                console.log("Invalid proxiable UUID for implementation %s.", implementation);
-                revert("Contract not upgradeable.");
-            }
-        } catch {
-            console.log("Contract %s does not implement proxiableUUID().", implementation);
-            revert("Contract not upgradeable.");
-        }
-    }
+    function mkdir(string memory path) internal virtual {
+        string[] memory script = new string[](3);
+        script[0] = "mkdir";
+        script[1] = "-p";
+        script[2] = path;
 
-    function loadProxyStoredImplementation(address proxy) internal virtual returns (address implementation) {
-        require(proxy.code.length != 0, string.concat("No code stored at ", vm.toString(proxy)));
-
-        try vm.load(proxy, ERC1967_PROXY_STORAGE_SLOT) returns (bytes32 data) {
-            implementation = address(uint160(uint256(data)));
-            require(
-                implementation != address(0),
-                string.concat("Invalid existing implementation address (0) for proxy ", vm.toString(proxy))
-            );
-            require(
-                UUPSUpgrade(implementation).proxiableUUID() == ERC1967_PROXY_STORAGE_SLOT,
-                string.concat("Invalid proxiable UUID for implementation ", vm.toString(implementation))
-            );
-        } catch {
-            console.log("Contract %s not identified as a proxy", proxy);
-        }
+        vm.ffi(script);
     }
 
     // hacky until vm.parseBytes32 comes around
