@@ -13,12 +13,12 @@ contract ExampleNFT is UUPSUpgradeable, ERC721Upgradeable, OwnableUpgradeable {
 
     constructor(uint256 version_) {
         version = version_;
+        _disableInitializers();
     }
 
-    function init(string calldata name, string calldata symbol) external initializer {
+    function init(string memory name, string memory symbol) external initializer {
         __Ownable_init();
         __ERC721_init(name, symbol);
-        _disableInitializers();
     }
 
     function tokenURI(uint256) public pure override returns (string memory uri) {

@@ -15,7 +15,7 @@ contract ExampleNFT is UUPSUpgrade, ERC721UDS, OwnableUDS {
         version = version_;
     }
 
-    function init(string calldata name, string calldata symbol) external initializer {
+    function init(string memory name, string memory symbol) external initializer {
         __Ownable_init();
         __ERC721_init(name, symbol);
     }
