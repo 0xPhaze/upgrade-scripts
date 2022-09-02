@@ -25,8 +25,13 @@ contract ExampleSetupScript is UpgradeScripts {
         UUPSUpgradeable(proxy).upgradeTo(newImplementation);
     }
 
+    // /// @dev uses forge's built-in create2 deployer (only works for specific chains, or: use your own!)
     // function deployCode(bytes memory code) internal override returns (address addr) {
-    //     // ...
+    //     uint256 salt = 0x1234;
+
+    //     assembly {
+    //         addr := create2(0, add(code, 0x20), mload(code), salt)
+    //     }
     // }
 
     function setUpContracts() internal {
@@ -35,8 +40,10 @@ contract ExampleSetupScript is UpgradeScripts {
         address implementation = setUpContract("ExampleNFT", constructorArgs);
 
         // encodes function call: `ExampleNFT.init("My NFT", "NFTX")`
-        bytes memory initCall = abi.encodeWithSelector(ExampleNFT.init.selector, "My NFT", "NFTX");
-        nft = ExampleNFT(setUpProxy("ExampleNFT", implementation, initCall));
+        bytes memory initCall = abi.encodeCall(ExampleNFT.init, ("My NFT", "NFTX"));
+        address proxy = setUpProxy(implementation, initCall);
+
+        nft = ExampleNFT(proxy);
     }
 
     function integrationTest() internal view {

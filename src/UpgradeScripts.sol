@@ -15,6 +15,7 @@ interface VmParseJson {
 contract UpgradeScripts is Script {
     struct ContractData {
         string name;
+        string key;
         address addr;
     }
 
@@ -26,8 +27,9 @@ contract UpgradeScripts is Script {
     bool __latestDeploymentsJsonLoaded;
 
     ContractData[] registeredContracts; // contracts registered through `setUpContract` or `setUpProxy`
+    mapping(address => string) registeredContractKey; // address => key mapping
     mapping(address => string) registeredContractName; // address => name mapping
-    mapping(string => address) registeredContractAddress; // name => address mapping
+    mapping(string => address) registeredContractAddress; // key => address mapping
 
     mapping(address => bool) firstTimeDeployed; // set to true for contracts that are just deployed; useful for inits
     mapping(address => bool) storageLayoutGenerated; // cache to not repeat slow layout generation
@@ -121,11 +123,10 @@ contract UpgradeScripts is Script {
             saveCreationCodeHash(implementation, keccak256(creationCode));
         }
 
-        registerContract(keyOrContractName, implementation);
+        registerContract(keyOrContractName, contractName, implementation);
     }
 
     function setUpProxy(
-        string memory contractName,
         address implementation,
         bytes memory initCall,
         string memory key,
@@ -138,6 +139,18 @@ contract UpgradeScripts is Script {
         }
         if (UPGRADE_SCRIPTS_ATTACH_ONLY) attachOnly = true;
 
+        string memory contractName = registeredContractName[implementation];
+
+        // we require the contract name/type to be able to create a storage layout mapping
+        // for the implementation tied to this proxy's address
+        if (bytes(contractName).length == 0) {
+            console.log("Could not identify proxy contract name/type for implementation %s [key: %s].", implementation, key); // prettier-ignore
+            console.log("Make sure the implementation type was set up via `setUpContract` for its type to be registered."); // prettier-ignore
+            console.log('Otherwise it can be set explicitly by adding `registeredContractName[%s] = "MyContract";`.', implementation); // prettier-ignore
+
+            revert("Could not identify contract type.");
+        }
+
         string memory keyOrContractName = bytes(key).length == 0 ? string.concat(contractName, "Proxy") : key;
 
         proxy = loadLatestDeployedAddress(keyOrContractName);
@@ -149,7 +162,7 @@ contract UpgradeScripts is Script {
                 console.log("Existing %s needs upgrade.", proxyLabel(proxy, contractName, storedImplementation, key)); // prettier-ignore
 
                 if (attachOnly) {
-                    console.log("Keeping existing implementation.");
+                    console.log("Keeping existing deployment (`attachOnly=true`).");
                 } else {
                     upgradeSafetyChecks(contractName, storedImplementation, implementation);
 
@@ -176,7 +189,7 @@ contract UpgradeScripts is Script {
             generateStorageLayoutFile(contractName, implementation);
         }
 
-        registerContract(keyOrContractName, proxy);
+        registerContract(keyOrContractName, contractName, proxy);
     }
 
     /* ------------- overloads ------------- */
@@ -202,24 +215,19 @@ contract UpgradeScripts is Script {
     }
 
     function setUpProxy(
-        string memory contractName,
         address implementation,
         bytes memory initCall,
         string memory key
     ) internal virtual returns (address) {
-        return setUpProxy(contractName, implementation, initCall, key, false);
+        return setUpProxy(implementation, initCall, key, false);
     }
 
-    function setUpProxy(
-        string memory contractName,
-        address implementation,
-        bytes memory initCall
-    ) internal virtual returns (address) {
-        return setUpProxy(contractName, implementation, initCall, "", false);
+    function setUpProxy(address implementation, bytes memory initCall) internal virtual returns (address) {
+        return setUpProxy(implementation, initCall, "", false);
     }
 
-    function setUpProxy(string memory contractName, address implementation) internal virtual returns (address) {
-        return setUpProxy(contractName, implementation, "", "", false);
+    function setUpProxy(address implementation) internal virtual returns (address) {
+        return setUpProxy(implementation, "", "", false);
     }
 
     /* ------------- filePath ------------- */
@@ -242,15 +250,21 @@ contract UpgradeScripts is Script {
 
     /* ------------- contract registry ------------- */
 
-    function registerContract(string memory name, address addr) internal virtual {
-        if (registeredContractAddress[name] != address(0)) {
-            console.log("Duplicate entry for key %s (%s) found when registering contract.", name, registeredContractAddress[name]); // prettier-ignore
+    function registerContract(
+        string memory key,
+        string memory name,
+        address addr
+    ) internal virtual {
+        if (registeredContractAddress[key] != address(0)) {
+            console.log("Duplicate entry for key %s (%s) found when registering contract.", key, registeredContractAddress[key]); // prettier-ignore
             revert("Duplicate key.");
         }
-        registeredContractName[addr] = name;
-        registeredContractAddress[name] = addr;
 
-        registeredContracts.push(ContractData({name: name, addr: addr}));
+        registeredContractKey[addr] = key;
+        registeredContractName[addr] = name;
+        registeredContractAddress[key] = addr;
+
+        registeredContracts.push(ContractData({key: key, name: name, addr: addr}));
     }
 
     function generateRegisteredContractsJson() internal virtual returns (string memory json) {
@@ -261,7 +275,7 @@ contract UpgradeScripts is Script {
             json = string.concat(
                 json,
                 '  "',
-                registeredContracts[i].name,
+                registeredContracts[i].key,
                 '": "',
                 vm.toString(registeredContracts[i].addr),
                 i + 1 == registeredContracts.length ? '"\n' : '",\n'
@@ -274,7 +288,7 @@ contract UpgradeScripts is Script {
         title("Registered Contracts");
 
         for (uint256 i; i < registeredContracts.length; i++) {
-            console.log("%s=%s", registeredContracts[i].name, registeredContracts[i].addr);
+            console.log("%s=%s", registeredContracts[i].key, registeredContracts[i].addr);
         }
         console.log("");
     }
@@ -405,8 +419,8 @@ contract UpgradeScripts is Script {
             console.log("\nDiff:");
             console.log(string(diff));
 
-            console.log("\nIf you believe the storage layout is compatible, add");
-            console.log("`if (block.chainid == %s) isUpgradeSafe[%s][%s] = true;` to the beginning of `run()` in your deploy script.", block.chainid, oldImplementation, newImplementation); // prettier-ignore
+            console.log("\nIf you believe the storage layout is compatible, add the following to the beginning of `run()` in your deploy script.\n```"); // prettier-ignore
+            console.log("if (block.chainid == %s) isUpgradeSafe[%s][%s] = true;\n```", block.chainid, oldImplementation, newImplementation); // prettier-ignore
 
             revert("Contract storage layout changed and might not be compatible.");
         }

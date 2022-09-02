@@ -35,7 +35,7 @@ contract deploy is ExampleSetupScript {
 
         // log all current deployments
         logDeployments();
-        // store these in `deployments/{chainid}/deploy-latest.json` (if not dry-run)
+        // store these in `deployments/{chainid}/deploy-latest.json` (if not in dry-run)
         storeLatestDeployments();
     }
 }
