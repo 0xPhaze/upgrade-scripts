@@ -39,10 +39,10 @@ The hash of `.creationCode` is compared instead of `addr.codehash`, because
 this would not allow for reliable checks for contracts that use immutable variables that change for each implementation (such as using `address(this)` in EIP-2612's `DOMAIN_SEPARATOR`).
 
 ```solidity
-string memory contractName = "MyContract"; // needs to be unique
-bytes memory constructorArgs = abi.encode(arg1, arg2); // abi-encoded args (if any)
-string memory key = "MyContractImplementation"; // identifier/key to be used for json
-bool attachOnly = false; // don't deploy, only read from latest-deployment and "attach"
+string memory contractName = "MyContract"; // name of the contract to be deployed
+bytes memory constructorArgs = abi.encode(arg1, arg2); // abi-encoded args (optional)
+string memory key = "MyContractImplementation"; // identifier/key to be used for json (optional, defaults to `contractName`)
+bool attachOnly = false; // don't deploy, only read from latest-deployment and "attach" (optional, defaults to `false`)
 
 address contract = setUpContract(contractName, constructorArgs, key, attachOnly);
 ```
@@ -53,16 +53,17 @@ address contract = setUpContract(contractName, constructorArgs, key, attachOnly)
 Similarly, a proxy can be deployed and kept up-to-date via `setUpProxy`.
 
 ```solidity
-string memory contractName = "MyContract"; // the implementation's contract name
-bytes memory initCall = abi.encodeWithSelector(MyContract.init.selector); // data to pass to proxy for making an initial call during deployment
-string memory key = "MyContractProxy"; // identifier/key to be used for json
-bool attachOnly = false;
+bytes memory initCall = abi.encodeCall(MyContract.init, ()); // data to pass to proxy for making an initial call during deployment (optional)
+string memory key = "MyContractProxy"; // identifier/key to be used for json (optional, defaults to implementation's `${contractName}Proxy`)
+bool attachOnly = false; (optional, defaults to `false`)
 
-address proxy = setUpProxy(contractName, contractImplementation, initCall, key, attachOnly);
+address proxy = setUpProxy(contractImplementation, initCall, key, attachOnly);
 ```
 
-Storage layout mappings are stored for each proxy implementation (which is why `contractName` is required). 
+Storage layout mappings are stored for each proxy implementation. 
 These are used for *storage layout compatibility* checks when running upgrades.
+This requires the implementation contract to be set up using `setUpContract`
+for the script to know what storage layout to store for the proxy.
 It is best to run through a complete example to understand when/how this is done.
 
 
