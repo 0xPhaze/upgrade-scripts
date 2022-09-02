@@ -18,8 +18,10 @@ contract ExampleSetupScript is UpgradeScripts {
     function setUpContracts() internal {
         address implementation = setUpContract("ExampleNFT");
 
-        bytes memory initCall = abi.encodeCall(ExampleNFT.init.selector, ("My NFT", "NFTX"));
-        nft = ExampleNFT(setUpProxy(implementation, initCall));
+        bytes memory initCall = abi.encodeCall(ExampleNFT.init, ("My NFT", "NFTX"));
+        address proxy = setUpProxy(implementation, initCall);
+
+        nft = ExampleNFT(proxy);
     }
 }
 ```
