@@ -142,8 +142,11 @@ it should notify that a storage layout change has been detected:
 Diff:
   [...]
 
-  If you believe the storage layout is compatible,
-  add `if (block.chainid == 31337) isUpgradeSafe[0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0][0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9] = true;` to `run()` in your deploy script.
+  
+If you believe the storage layout is compatible, add the following to the beginning of `run()` in your deploy script.
+`
+if (block.chainid == 31337) isUpgradeSafe[0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0][0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9] = true;
+`
 ```
 
 Note that, this can easily lead to false-positives, for example, when any variable is renamed
