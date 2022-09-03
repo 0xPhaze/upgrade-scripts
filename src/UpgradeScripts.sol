@@ -19,6 +19,7 @@ contract UpgradeScripts is Script {
         address addr;
     }
 
+    bool UPGRADE_SCRIPTS_RESET; // re-deploys all contracts
     bool UPGRADE_SCRIPTS_BYPASS; // deploys contracts without any checks whatsoever
     bool UPGRADE_SCRIPTS_DRY_RUN; // doesn't overwrite new deployments in deploy-latest.json
     bool UPGRADE_SCRIPTS_ATTACH_ONLY; // doesn't deploy contracts, just attaches with checks
@@ -36,12 +37,12 @@ contract UpgradeScripts is Script {
     mapping(address => mapping(address => bool)) isUpgradeSafe; // whether a contract => contract is deemed upgrade safe
 
     constructor() {
-        upgradeScriptsInit(); // allows for override
+        setUpUpgradeScripts(); // allows for override
 
         loadEnvVars();
 
         if (UPGRADE_SCRIPTS_BYPASS) return; // bypass any checks
-        if (UPGRADE_SCRIPTS_ATTACH_ONLY) return; // bypass any further checks
+        if (UPGRADE_SCRIPTS_ATTACH_ONLY) return; // bypass any further checks (doesn't require FFI)
 
         // enforce dry-run when ffi is disabled, since otherwise
         // deployments won't be able to be logged in `deploy-latest.json`
@@ -56,22 +57,7 @@ contract UpgradeScripts is Script {
         }
     }
 
-    function upgradeScriptsInit() internal virtual {}
-
-    function loadEnvVars() internal virtual {
-        try vm.envBool("UPGRADE_SCRIPTS_DRY_RUN") returns (bool val) {
-            UPGRADE_SCRIPTS_DRY_RUN = val;
-            if (val) console.log("UPGRADE_SCRIPTS_DRY_RUN=true");
-        } catch {}
-        try vm.envBool("UPGRADE_SCRIPTS_BYPASS") returns (bool val) {
-            UPGRADE_SCRIPTS_BYPASS = val;
-            if (val) console.log("UPGRADE_SCRIPTS_BYPASS=true");
-        } catch {}
-        try vm.envBool("UPGRADE_SCRIPTS_ATTACH_ONLY") returns (bool val) {
-            UPGRADE_SCRIPTS_ATTACH_ONLY = val;
-            if (val) console.log("UPGRADE_SCRIPTS_ATTACH_ONLY=true");
-        } catch {}
-    }
+    function setUpUpgradeScripts() internal virtual {}
 
     /* ------------- setUp ------------- */
 
@@ -81,38 +67,39 @@ contract UpgradeScripts is Script {
         string memory key,
         bool attachOnly
     ) internal virtual returns (address implementation) {
+        string memory keyOrContractName = bytes(key).length == 0 ? contractName : key;
         bytes memory creationCode = abi.encodePacked(getContractCode(contractName), constructorArgs);
 
         if (UPGRADE_SCRIPTS_BYPASS) return deployCodeWrapper(creationCode);
         if (UPGRADE_SCRIPTS_ATTACH_ONLY) attachOnly = true;
 
-        string memory keyOrContractName = bytes(key).length == 0 ? contractName : key;
+        bool deployNew = UPGRADE_SCRIPTS_RESET;
 
-        implementation = loadLatestDeployedAddress(keyOrContractName);
+        if (!deployNew) {
+            implementation = loadLatestDeployedAddress(keyOrContractName);
 
-        bool deployNew;
+            if (implementation != address(0)) {
+                if (implementation.code.length == 0) {
+                    console.log("Stored %s does not contain code.", label(contractName, implementation, key));
+                    console.log("Make sure '%s' contains all the latest deployments.", getDeploymentsPath("deploy-latest.json")); // prettier-ignore
 
-        if (implementation != address(0)) {
-            if (implementation.code.length == 0) {
-                console.log("Stored %s does not contain code.", label(contractName, implementation, key));
-                console.log("Make sure '%s' contains all the latest deployments.", getDeploymentsPath("deploy-latest.json")); // prettier-ignore
+                    revert("Invalid contract address.");
+                }
 
-                revert("Invalid contract address.");
-            }
+                if (creationCodeHashMatches(implementation, keccak256(creationCode))) {
+                    console.log("Stored %s up-to-date.", label(contractName, implementation, key));
+                } else {
+                    console.log("Implementation for %s changed.", label(contractName, implementation, key));
 
-            if (creationCodeHashMatches(implementation, keccak256(creationCode))) {
-                console.log("Stored %s up-to-date.", label(contractName, implementation, key));
+                    if (attachOnly) console.log("Keeping existing deployment (`attachOnly=true`).");
+                    else deployNew = true;
+                }
             } else {
-                console.log("Implementation for %s changed.", label(contractName, implementation, key));
+                console.log("Implementation for %s not found.", label(contractName, implementation, key));
+                deployNew = true;
 
-                if (attachOnly) console.log("Keeping existing deployment (`attachOnly=true`).");
-                else deployNew = true;
+                if (UPGRADE_SCRIPTS_ATTACH_ONLY) revert("Contract deployment is missing.");
             }
-        } else {
-            console.log("Implementation for %s not found.", label(contractName, implementation, key));
-            deployNew = true;
-
-            if (UPGRADE_SCRIPTS_ATTACH_ONLY) revert("Contract deployment is missing.");
         }
 
         if (deployNew) {
@@ -132,14 +119,14 @@ contract UpgradeScripts is Script {
         string memory key,
         bool attachOnly
     ) internal virtual returns (address proxy) {
-        if (UPGRADE_SCRIPTS_BYPASS) {
-            assertIsERC1967Upgrade(implementation);
+        // run this check always, as otherwise the error-message is confusing
+        assertIsERC1967Upgrade(implementation);
 
-            return deployProxy(implementation, initCall);
-        }
+        if (UPGRADE_SCRIPTS_BYPASS) return deployProxy(implementation, initCall);
         if (UPGRADE_SCRIPTS_ATTACH_ONLY) attachOnly = true;
 
         string memory contractName = registeredContractName[implementation];
+        string memory keyOrContractName = bytes(key).length == 0 ? string.concat(contractName, "Proxy") : key;
 
         // we require the contract name/type to be able to create a storage layout mapping
         // for the implementation tied to this proxy's address
@@ -151,37 +138,41 @@ contract UpgradeScripts is Script {
             revert("Could not identify contract type.");
         }
 
-        string memory keyOrContractName = bytes(key).length == 0 ? string.concat(contractName, "Proxy") : key;
+        bool deployNew = UPGRADE_SCRIPTS_RESET;
 
-        proxy = loadLatestDeployedAddress(keyOrContractName);
+        if (!deployNew) {
+            proxy = loadLatestDeployedAddress(keyOrContractName);
 
-        if (proxy != address(0)) {
-            address storedImplementation = loadProxyStoredImplementation(proxy);
+            if (proxy != address(0)) {
+                address storedImplementation = loadProxyStoredImplementation(proxy);
 
-            if (storedImplementation != implementation) {
-                console.log("Existing %s needs upgrade.", proxyLabel(proxy, contractName, storedImplementation, key)); // prettier-ignore
+                if (storedImplementation != implementation) {
+                    console.log("Existing %s needs upgrade.", proxyLabel(proxy, contractName, storedImplementation, key)); // prettier-ignore
 
-                if (attachOnly) {
-                    console.log("Keeping existing deployment (`attachOnly=true`).");
+                    if (attachOnly) {
+                        console.log("Keeping existing deployment (`attachOnly=true`).");
+                    } else {
+                        upgradeSafetyChecks(contractName, storedImplementation, implementation);
+
+                        console.log("Upgrading %s.\n", proxyLabel(proxy, contractName, implementation, key));
+
+                        requireConfirmation("CONFIRM_UPGRADE");
+
+                        upgradeProxy(proxy, implementation);
+                    }
                 } else {
-                    upgradeSafetyChecks(contractName, storedImplementation, implementation);
-
-                    console.log("Upgrading %s.\n", proxyLabel(proxy, contractName, implementation, key));
-
-                    requireConfirmation("CONFIRM_UPGRADE");
-
-                    upgradeProxy(proxy, implementation);
+                    console.log("Stored %s up-to-date.", proxyLabel(proxy, contractName, implementation, key));
                 }
             } else {
-                console.log("Stored %s up-to-date.", proxyLabel(proxy, contractName, implementation, key));
+                console.log("Existing %s not found.", proxyLabel(proxy, contractName, implementation, key));
+
+                if (UPGRADE_SCRIPTS_ATTACH_ONLY) revert("Contract deployment is missing.");
+
+                deployNew = true;
             }
-        } else {
-            console.log("Existing %s not found.", proxyLabel(proxy, contractName, implementation, key));
+        }
 
-            if (UPGRADE_SCRIPTS_ATTACH_ONLY) revert("Contract deployment is missing.");
-
-            assertIsERC1967Upgrade(implementation);
-
+        if (deployNew) {
             proxy = confirmDeployProxy(implementation, initCall);
 
             console.log("=> new %s.\n", proxyLabel(proxy, contractName, implementation, key));
@@ -248,66 +239,25 @@ contract UpgradeScripts is Script {
         return getDeploymentsDataPath(string.concat(vm.toString(addr), ".storage-layout"));
     }
 
-    /* ------------- contract registry ------------- */
-
-    function registerContract(
-        string memory key,
-        string memory name,
-        address addr
-    ) internal virtual {
-        if (registeredContractAddress[key] != address(0)) {
-            console.log("Duplicate entry for key %s (%s) found when registering contract.", key, registeredContractAddress[key]); // prettier-ignore
-            revert("Duplicate key.");
-        }
-
-        registeredContractKey[addr] = key;
-        registeredContractName[addr] = name;
-        registeredContractAddress[key] = addr;
-
-        registeredContracts.push(ContractData({key: key, name: name, addr: addr}));
-    }
-
-    function generateRegisteredContractsJson() internal virtual returns (string memory json) {
-        if (registeredContracts.length == 0) return "";
-
-        json = "{\n";
-        for (uint256 i; i < registeredContracts.length; i++) {
-            json = string.concat(
-                json,
-                '  "',
-                registeredContracts[i].key,
-                '": "',
-                vm.toString(registeredContracts[i].addr),
-                i + 1 == registeredContracts.length ? '"\n' : '",\n'
-            );
-        }
-        json = string.concat(json, "}");
-    }
-
-    function logDeployments() internal view virtual {
-        title("Registered Contracts");
-
-        for (uint256 i; i < registeredContracts.length; i++) {
-            console.log("%s=%s", registeredContracts[i].key, registeredContracts[i].addr);
-        }
-        console.log("");
-    }
-
-    function storeLatestDeployments() internal virtual {
-        if (!UPGRADE_SCRIPTS_DRY_RUN) {
-            string memory json = generateRegisteredContractsJson();
-
-            if (keccak256(bytes(json)) == keccak256(bytes(__latestDeploymentsJson))) {
-                console.log("\nNo changes detected.");
-            } else {
-                vm.writeFile(getDeploymentsPath(string.concat("deploy-latest.json")), json);
-                vm.writeFile(getDeploymentsPath(string.concat("deploy-", vm.toString(block.timestamp), ".json")), json);
-                console.log("Deployments saved to %s.", getDeploymentsPath(string.concat("deploy-latest.json")));
-            }
-        }
-    }
-
     /* ------------- snippets ------------- */
+
+    function loadEnvVars() internal virtual {
+        UPGRADE_SCRIPTS_RESET = tryLoadEnvBool("UPGRADE_SCRIPTS_RESET", "US_RESET");
+        UPGRADE_SCRIPTS_BYPASS = tryLoadEnvBool("UPGRADE_SCRIPTS_BYPASS", "US_BYPASS");
+        UPGRADE_SCRIPTS_DRY_RUN = tryLoadEnvBool("UPGRADE_SCRIPTS_DRY_RUN", "US_DRY_RUN");
+        UPGRADE_SCRIPTS_ATTACH_ONLY = tryLoadEnvBool("UPGRADE_SCRIPTS_ATTACH_ONLY", "US_ATTACH_ONLY");
+    }
+
+    function tryLoadEnvBool(string memory varName, string memory varAlias) internal virtual returns (bool val) {
+        try vm.envBool(varName) returns (bool val_) {
+            val = val_;
+        } catch {
+            try vm.envBool(varAlias) returns (bool val_) {
+                val = val_;
+            } catch {}
+        }
+        if (val) console.log("%s=true", varName);
+    }
 
     function startBroadcastIfNotDryRun() internal {
         if (!UPGRADE_SCRIPTS_DRY_RUN) {
@@ -386,6 +336,8 @@ contract UpgradeScripts is Script {
         address oldImplementation,
         address newImplementation
     ) internal virtual {
+        // note that `assertIsERC1967Upgrade(newImplementation);` is always run beforehand in any case
+
         if (isUpgradeSafe[oldImplementation][newImplementation]) {
             return console.log("Storage layout compatibility check [%s <-> %s]: pass (`isUpgradeSafe=true`)", oldImplementation, newImplementation); // prettier-ignore
         }
@@ -454,6 +406,7 @@ contract UpgradeScripts is Script {
             console.log("No code stored at %s.", implementation);
             revert("Invalid contract address.");
         }
+
         try UUPSUpgrade(implementation).proxiableUUID() returns (bytes32 uuid) {
             if (uuid != ERC1967_PROXY_STORAGE_SLOT) {
                 console.log("Invalid proxiable UUID for implementation %s.", implementation);
@@ -605,6 +558,67 @@ contract UpgradeScripts is Script {
     function parseBytes32(string memory data) internal virtual returns (bytes32) {
         vm.setEnv("_TMP", data);
         return vm.envBytes32("_TMP");
+    }
+
+    /* ------------- contract registry ------------- */
+
+    function registerContract(
+        string memory key,
+        string memory name,
+        address addr
+    ) internal virtual {
+        if (registeredContractAddress[key] != address(0)) {
+            console.log("Duplicate entry for key %s (%s) found when registering contract.", key, registeredContractAddress[key]); // prettier-ignore
+
+            revert("Duplicate key.");
+        }
+
+        registeredContractKey[addr] = key;
+        registeredContractName[addr] = name;
+        registeredContractAddress[key] = addr;
+
+        registeredContracts.push(ContractData({key: key, name: name, addr: addr}));
+    }
+
+    function generateRegisteredContractsJson() internal virtual returns (string memory json) {
+        if (registeredContracts.length == 0) return "";
+
+        json = "{\n";
+        for (uint256 i; i < registeredContracts.length; i++) {
+            json = string.concat(
+                json,
+                '  "',
+                registeredContracts[i].key,
+                '": "',
+                vm.toString(registeredContracts[i].addr),
+                i + 1 == registeredContracts.length ? '"\n' : '",\n'
+            );
+        }
+        json = string.concat(json, "}");
+    }
+
+    function logDeployments() internal view virtual {
+        title("Registered Contracts");
+
+        for (uint256 i; i < registeredContracts.length; i++) {
+            console.log("%s=%s", registeredContracts[i].key, registeredContracts[i].addr);
+        }
+
+        console.log("");
+    }
+
+    function storeLatestDeployments() internal virtual {
+        if (!UPGRADE_SCRIPTS_DRY_RUN) {
+            string memory json = generateRegisteredContractsJson();
+
+            if (keccak256(bytes(json)) == keccak256(bytes(__latestDeploymentsJson))) {
+                console.log("\nNo changes detected.");
+            } else {
+                vm.writeFile(getDeploymentsPath(string.concat("deploy-latest.json")), json);
+                vm.writeFile(getDeploymentsPath(string.concat("deploy-", vm.toString(block.timestamp), ".json")), json);
+                console.log("Deployments saved to %s.", getDeploymentsPath(string.concat("deploy-latest.json")));
+            }
+        }
     }
 
     /* ------------- prints ------------- */
