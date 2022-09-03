@@ -58,7 +58,7 @@ Similarly, a proxy can be deployed and kept up-to-date via `setUpProxy`.
 ```solidity
 bytes memory initCall = abi.encodeCall(MyContract.init, ()); // data to pass to proxy for making an initial call during deployment (optional)
 string memory key = "MyContractProxy"; // identifier/key to be used for json (optional, defaults to `${contractNameImplementation}Proxy`)
-bool attachOnly = false; (optional, defaults to `false`)
+bool attachOnly = false; // (optional, defaults to `false`)
 
 address proxy = setUpProxy(implementationAddress, initCall, key, attachOnly);
 ```
