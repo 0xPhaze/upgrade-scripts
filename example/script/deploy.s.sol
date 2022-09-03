@@ -4,9 +4,7 @@ pragma solidity ^0.8.0;
 import "../src/ExampleSetupScript.sol";
 
 /* 
-# Anvil example
-
-Make sure anvil is running.
+# Anvil example (make sure it is running)
 
 ## Dry-run
 UPGRADE_SCRIPTS_DRY_RUN=true forge script deploy --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --ffi
