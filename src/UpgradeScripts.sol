@@ -246,6 +246,9 @@ contract UpgradeScripts is Script {
         UPGRADE_SCRIPTS_BYPASS = tryLoadEnvBool("UPGRADE_SCRIPTS_BYPASS", "US_BYPASS");
         UPGRADE_SCRIPTS_DRY_RUN = tryLoadEnvBool("UPGRADE_SCRIPTS_DRY_RUN", "US_DRY_RUN");
         UPGRADE_SCRIPTS_ATTACH_ONLY = tryLoadEnvBool("UPGRADE_SCRIPTS_ATTACH_ONLY", "US_ATTACH_ONLY");
+
+        if (UPGRADE_SCRIPTS_RESET || UPGRADE_SCRIPTS_BYPASS || UPGRADE_SCRIPTS_DRY_RUN || UPGRADE_SCRIPTS_ATTACH_ONLY)
+            console.log("");
     }
 
     function tryLoadEnvBool(string memory varName, string memory varAlias) internal virtual returns (bool val) {

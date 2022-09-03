@@ -21,7 +21,7 @@ contract deploy is ExampleSetupScript {
         // will run `vm.startBroadcast();` if ffi is enabled
         // ffi is required for running storage layout compatibility checks
         // if ffi is disabled, it will enter "dry-run" and
-        // run `vm.startPrank(msg.sender)` instead for the script to be consistent
+        // run `vm.startPrank(tx.origin)` instead for the script to be consistent
         startBroadcastIfNotDryRun();
 
         // run the setup scripts
@@ -33,7 +33,7 @@ contract deploy is ExampleSetupScript {
         // run an "integration test"
         integrationTest();
 
-        // log all current deployments
+        // log all current deployments in console
         logDeployments();
         // store these in `deployments/{chainid}/deploy-latest.json` (if not in dry-run)
         storeLatestDeployments();
