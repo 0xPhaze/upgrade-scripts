@@ -46,20 +46,21 @@ bytes memory constructorArgs = abi.encode(arg1, arg2); // abi-encoded args (opti
 string memory key = "MyContractImplementation"; // identifier/key to be used for json (optional, defaults to `contractName`)
 bool attachOnly = false; // don't deploy, only read from latest-deployment and "attach" (optional, defaults to `false`)
 
-address contract = setUpContract(contractName, constructorArgs, key, attachOnly);
+address implementation = setUpContract(contractName, constructorArgs, key, attachOnly);
 ```
 
-`key` (defaults to `contractName`) is used for display in the console and as an identifier in `deployments/{chainid}/deploy-latest.json`.
+The `key` is used for display in the console and as an identifier in `deployments/{chainid}/deploy-latest.json`.
+Setting up multiple contracts/proxies of the same type requires different keys to be set.
 
 
 Similarly, a proxy can be deployed and kept up-to-date via `setUpProxy`.
 
 ```solidity
 bytes memory initCall = abi.encodeCall(MyContract.init, ()); // data to pass to proxy for making an initial call during deployment (optional)
-string memory key = "MyContractProxy"; // identifier/key to be used for json (optional, defaults to implementation's `${contractName}Proxy`)
+string memory key = "MyContractProxy"; // identifier/key to be used for json (optional, defaults to `${contractNameImplementation}Proxy`)
 bool attachOnly = false; (optional, defaults to `false`)
 
-address proxy = setUpProxy(contractImplementation, initCall, key, attachOnly);
+address proxy = setUpProxy(implementationAddress, initCall, key, attachOnly);
 ```
 
 Storage layout mappings are stored for each proxy implementation. 
@@ -199,7 +200,7 @@ In order to keep the deployment as close to the testing environment,
 it is generally helpful to share the same contract set-up scripts.
 
 To disable any additional checks or logs that are not necessary when running `forge test`,
-the function `upgradeScriptsInit()` can be overridden to
+the function `setUpUpgradeScripts()` can be overridden to
 include `UPGRADE_SCRIPTS_BYPASS = true;`. This can be seen in [ExampleNFT.t.sol](./example/test/ExampleNFT.t.sol).
 This bypasses all checks and simply deploys the contracts.
 

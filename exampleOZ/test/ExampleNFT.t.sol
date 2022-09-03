@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import {ExampleSetupScript} from "../src/ExampleSetupScript.sol";
 
 contract TestExampleNFT is ExampleSetupScript {
-    function upgradeScriptsInit() internal override {
+    function setUpUpgradeScripts() internal override {
         UPGRADE_SCRIPTS_BYPASS = true; // deploys contracts without any checks whatsoever
     }
 
