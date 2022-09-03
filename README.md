@@ -192,7 +192,7 @@ complete example using OpenZeppelin's upgradeable contracts.
 
 
 ### Running on Mainnet
-If not running on a testnet, adding `CONFIRM_DEPLOYMENT=true CONFIRM_UPGRADE=true forge ...` might be necessary. This is an additional safety measure. 
+If not running on a testnet, adding `UPGRADE_SCRIPTS_CONFIRM_DEPLOY=true UPGRADE_SCRIPTS_CONFIRM_UPGRADE=true forge ...` might be necessary. This is an additional safety measure. 
 
 ### Testing with Upgrade Scripts
 

@@ -23,9 +23,11 @@ contract UpgradeScripts is Script {
     bool UPGRADE_SCRIPTS_BYPASS; // deploys contracts without any checks whatsoever
     bool UPGRADE_SCRIPTS_DRY_RUN; // doesn't overwrite new deployments in deploy-latest.json
     bool UPGRADE_SCRIPTS_ATTACH_ONLY; // doesn't deploy contracts, just attaches with checks
+    bool UPGRADE_SCRIPTS_CONFIRM_DEPLOY; // confirm deployments when running on mainnet
+    bool UPGRADE_SCRIPTS_CONFIRM_UPGRADE; // confirm upgrades when running on mainnet
 
-    string __latestDeploymentsJson;
     bool __latestDeploymentsJsonLoaded;
+    string __latestDeploymentsJson;
 
     ContractData[] registeredContracts; // contracts registered through `setUpContract` or `setUpProxy`
     mapping(address => string) registeredContractKey; // address => key mapping
@@ -57,6 +59,7 @@ contract UpgradeScripts is Script {
         }
     }
 
+    /// @dev allows for `UPGRADE_SCRIPTS_*` variables to be set in override
     function setUpUpgradeScripts() internal virtual {}
 
     /* ------------- setUp ------------- */
@@ -70,7 +73,13 @@ contract UpgradeScripts is Script {
         string memory keyOrContractName = bytes(key).length == 0 ? contractName : key;
         bytes memory creationCode = abi.encodePacked(getContractCode(contractName), constructorArgs);
 
-        if (UPGRADE_SCRIPTS_BYPASS) return deployCodeWrapper(creationCode);
+        if (UPGRADE_SCRIPTS_BYPASS) {
+            implementation = deployCodeWrapper(creationCode);
+
+            vm.label(implementation, keyOrContractName);
+
+            return implementation;
+        }
         if (UPGRADE_SCRIPTS_ATTACH_ONLY) attachOnly = true;
 
         bool deployNew = UPGRADE_SCRIPTS_RESET;
@@ -80,22 +89,22 @@ contract UpgradeScripts is Script {
 
             if (implementation != address(0)) {
                 if (implementation.code.length == 0) {
-                    console.log("Stored %s does not contain code.", label(contractName, implementation, key));
+                    console.log("Stored %s does not contain code.", contractLabel(contractName, implementation, key));
                     console.log("Make sure '%s' contains all the latest deployments.", getDeploymentsPath("deploy-latest.json")); // prettier-ignore
 
                     revert("Invalid contract address.");
                 }
 
                 if (creationCodeHashMatches(implementation, keccak256(creationCode))) {
-                    console.log("Stored %s up-to-date.", label(contractName, implementation, key));
+                    console.log("Stored %s up-to-date.", contractLabel(contractName, implementation, key));
                 } else {
-                    console.log("Implementation for %s changed.", label(contractName, implementation, key));
+                    console.log("Implementation for %s changed.", contractLabel(contractName, implementation, key));
 
                     if (attachOnly) console.log("Keeping existing deployment (`attachOnly=true`).");
                     else deployNew = true;
                 }
             } else {
-                console.log("Implementation for %s not found.", label(contractName, implementation, key));
+                console.log("Implementation for %s not found.", contractLabel(contractName, implementation, key));
                 deployNew = true;
 
                 if (UPGRADE_SCRIPTS_ATTACH_ONLY) revert("Contract deployment is missing.");
@@ -105,7 +114,7 @@ contract UpgradeScripts is Script {
         if (deployNew) {
             implementation = confirmDeployCode(creationCode);
 
-            console.log("=> new %s.\n", label(contractName, implementation, key));
+            console.log("=> new %s.\n", contractLabel(contractName, implementation, key));
 
             saveCreationCodeHash(implementation, keccak256(creationCode));
         }
@@ -122,11 +131,17 @@ contract UpgradeScripts is Script {
         // run this check always, as otherwise the error-message is confusing
         assertIsERC1967Upgrade(implementation);
 
-        if (UPGRADE_SCRIPTS_BYPASS) return deployProxy(implementation, initCall);
-        if (UPGRADE_SCRIPTS_ATTACH_ONLY) attachOnly = true;
-
         string memory contractName = registeredContractName[implementation];
         string memory keyOrContractName = bytes(key).length == 0 ? string.concat(contractName, "Proxy") : key;
+
+        if (UPGRADE_SCRIPTS_BYPASS) {
+            proxy = deployProxy(implementation, initCall);
+
+            vm.label(proxy, keyOrContractName);
+
+            return proxy;
+        }
+        if (UPGRADE_SCRIPTS_ATTACH_ONLY) attachOnly = true;
 
         // we require the contract name/type to be able to create a storage layout mapping
         // for the implementation tied to this proxy's address
@@ -156,9 +171,7 @@ contract UpgradeScripts is Script {
 
                         console.log("Upgrading %s.\n", proxyLabel(proxy, contractName, implementation, key));
 
-                        requireConfirmation("CONFIRM_UPGRADE");
-
-                        upgradeProxy(proxy, implementation);
+                        confirmUpgradeProxy(proxy, implementation);
                     }
                 } else {
                     console.log("Stored %s up-to-date.", proxyLabel(proxy, contractName, implementation, key));
@@ -221,24 +234,6 @@ contract UpgradeScripts is Script {
         return setUpProxy(implementation, "", "", false);
     }
 
-    /* ------------- filePath ------------- */
-
-    function getDeploymentsPath(string memory path) internal virtual returns (string memory) {
-        return string.concat("deployments/", vm.toString(block.chainid), "/", path);
-    }
-
-    function getDeploymentsDataPath(string memory path) internal virtual returns (string memory) {
-        return getDeploymentsPath(string.concat("data/", path));
-    }
-
-    function getCreationCodeHashFilePath(address addr) internal virtual returns (string memory) {
-        return getDeploymentsDataPath(string.concat(vm.toString(addr), ".creation-code-hash"));
-    }
-
-    function getStorageLayoutFilePath(address addr) internal virtual returns (string memory) {
-        return getDeploymentsDataPath(string.concat(vm.toString(addr), ".storage-layout"));
-    }
-
     /* ------------- snippets ------------- */
 
     function loadEnvVars() internal virtual {
@@ -246,9 +241,17 @@ contract UpgradeScripts is Script {
         UPGRADE_SCRIPTS_BYPASS = tryLoadEnvBool("UPGRADE_SCRIPTS_BYPASS", "US_BYPASS");
         UPGRADE_SCRIPTS_DRY_RUN = tryLoadEnvBool("UPGRADE_SCRIPTS_DRY_RUN", "US_DRY_RUN");
         UPGRADE_SCRIPTS_ATTACH_ONLY = tryLoadEnvBool("UPGRADE_SCRIPTS_ATTACH_ONLY", "US_ATTACH_ONLY");
+        UPGRADE_SCRIPTS_CONFIRM_DEPLOY = tryLoadEnvBool("UPGRADE_SCRIPTS_CONFIRM_DEPLOY", "US_CONFIRM_DEPLOY"); // prettier-ignore
+        UPGRADE_SCRIPTS_CONFIRM_UPGRADE = tryLoadEnvBool("UPGRADE_SCRIPTS_CONFIRM_UPGRADE", "US_CONFIRM_UPGRADE");
 
-        if (UPGRADE_SCRIPTS_RESET || UPGRADE_SCRIPTS_BYPASS || UPGRADE_SCRIPTS_DRY_RUN || UPGRADE_SCRIPTS_ATTACH_ONLY)
-            console.log("");
+        if (
+            UPGRADE_SCRIPTS_RESET ||
+            UPGRADE_SCRIPTS_BYPASS ||
+            UPGRADE_SCRIPTS_DRY_RUN ||
+            UPGRADE_SCRIPTS_ATTACH_ONLY ||
+            UPGRADE_SCRIPTS_CONFIRM_DEPLOY ||
+            UPGRADE_SCRIPTS_CONFIRM_UPGRADE
+        ) console.log("");
     }
 
     function tryLoadEnvBool(string memory varName, string memory varAlias) internal virtual returns (bool val) {
@@ -313,10 +316,10 @@ contract UpgradeScripts is Script {
         if (storageLayoutGenerated[implementation]) return;
 
         if (!isFFIEnabled()) {
-            return console.log("SKIPPING storage layout mapping for %s (`FFI=false`).\n", label(contractName, implementation, '')); // prettier-ignore
+            return console.log("SKIPPING storage layout mapping for %s (`FFI=false`).\n", contractLabel(contractName, implementation, '')); // prettier-ignore
         }
 
-        console.log("Generating storage layout mapping for %s.\n", label(contractName, implementation, ""));
+        console.log("Generating storage layout mapping for %s.\n", contractLabel(contractName, implementation, ""));
 
         // assert Contract exists
         getContractCode(contractName);
@@ -342,7 +345,7 @@ contract UpgradeScripts is Script {
         // note that `assertIsERC1967Upgrade(newImplementation);` is always run beforehand in any case
 
         if (isUpgradeSafe[oldImplementation][newImplementation]) {
-            return console.log("Storage layout compatibility check [%s <-> %s]: pass (`isUpgradeSafe=true`)", oldImplementation, newImplementation); // prettier-ignore
+            return console.log("Storage layout compatibility check [%s <-> %s]: Pass (`isUpgradeSafe=true`)", oldImplementation, newImplementation); // prettier-ignore
         }
         if (!isFFIEnabled()) {
             return console.log("SKIPPING storage layout compatibility check [%s <-> %s] (`FFI=false`).", oldImplementation, newImplementation); // prettier-ignore
@@ -368,9 +371,9 @@ contract UpgradeScripts is Script {
         bytes memory diff = vm.ffi(script);
 
         if (diff.length == 0) {
-            console.log("Storage layout compatibility check [%s <-> %s]: pass.", oldImplementation, newImplementation);
+            console.log("Storage layout compatibility check [%s <-> %s]: Pass.", oldImplementation, newImplementation);
         } else {
-            console.log("Storage layout compatibility check [%s <-> %s]: fail", oldImplementation, newImplementation);
+            console.log("Storage layout compatibility check [%s <-> %s]: Fail", oldImplementation, newImplementation);
             console.log("\nDiff:");
             console.log(string(diff));
 
@@ -404,6 +407,25 @@ contract UpgradeScripts is Script {
         return false;
     }
 
+    function assertFileExists(string memory file) internal virtual {
+        string[] memory script = new string[](2);
+        script[0] = "ls";
+        script[1] = file;
+
+        bool exists;
+
+        try vm.ffi(script) returns (bytes memory res) {
+            if (bytes(res).length != 0) {
+                exists = true;
+            }
+        } catch {}
+
+        if (!exists) {
+            console.log("Unable to locate file '%s'.", file);
+            revert("File does not exist.");
+        }
+    }
+
     function assertIsERC1967Upgrade(address implementation) internal virtual {
         if (implementation.code.length == 0) {
             console.log("No code stored at %s.", implementation);
@@ -420,8 +442,6 @@ contract UpgradeScripts is Script {
             revert("Contract not upgradeable.");
         }
     }
-
-    /* ------------- utils ------------- */
 
     function getContractCode(string memory contractName) internal virtual returns (bytes memory code) {
         string memory artifact = string.concat(contractName, ".sol");
@@ -447,45 +467,16 @@ contract UpgradeScripts is Script {
         return abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(implementation, initCall));
     }
 
-    function upgradeProxy(address proxy, address newImplementation) internal virtual {
-        UUPSUpgrade(proxy).upgradeToAndCall(newImplementation, "");
+    function requireConfirmDeploy() internal virtual {
+        requireConfirmation(UPGRADE_SCRIPTS_CONFIRM_DEPLOY, "UPGRADE_SCRIPTS_CONFIRM_DEPLOY");
     }
 
-    function deployCode(bytes memory code) internal virtual returns (address addr) {
-        assembly {
-            addr := create(0, add(code, 0x20), mload(code))
-        }
+    function requireConfirmUpgrade() internal virtual {
+        requireConfirmation(UPGRADE_SCRIPTS_CONFIRM_UPGRADE, "UPGRADE_SCRIPTS_CONFIRM_UPGRADE");
     }
 
-    function deployCodeWrapper(bytes memory code) internal virtual returns (address addr) {
-        addr = deployCode(code);
-
-        firstTimeDeployed[addr] = true;
-
-        require(addr.code.length != 0, "Failed to deploy code.");
-    }
-
-    function deployProxy(address implementation, bytes memory initCall) internal virtual returns (address) {
-        return deployCodeWrapper(getDeployProxyCode(implementation, initCall));
-    }
-
-    function confirmDeployProxy(address implementation, bytes memory initCall) internal virtual returns (address) {
-        return confirmDeployCode(getDeployProxyCode(implementation, initCall));
-    }
-
-    function confirmDeployCode(bytes memory code) internal virtual returns (address) {
-        requireConfirmation("CONFIRM_DEPLOYMENT");
-
-        return deployCodeWrapper(code);
-    }
-
-    function requireConfirmation(string memory variable) internal virtual {
-        if (isTestnet() || UPGRADE_SCRIPTS_DRY_RUN) return;
-
-        bool confirmed;
-        try vm.envBool(variable) returns (bool confirmed_) {
-            confirmed = confirmed_;
-        } catch {}
+    function requireConfirmation(bool confirmed, string memory variable) internal virtual {
+        if (isTestnet() || UPGRADE_SCRIPTS_DRY_RUN || UPGRADE_SCRIPTS_BYPASS) return;
 
         if (!confirmed) {
             console.log("\nWARNING: `%s=true` must be set for mainnet.", variable);
@@ -503,27 +494,47 @@ contract UpgradeScripts is Script {
         }
     }
 
-    function hasCode(address addr) internal view virtual returns (bool hasCode_) {
+    function confirmUpgradeProxy(address proxy, address newImplementation) internal virtual {
+        upgradeProxy(proxy, newImplementation);
+    }
+
+    function upgradeProxy(address proxy, address newImplementation) internal virtual {
+        UUPSUpgrade(proxy).upgradeToAndCall(newImplementation, "");
+    }
+
+    function confirmDeployProxy(address implementation, bytes memory initCall) internal virtual returns (address) {
+        return confirmDeployCode(getDeployProxyCode(implementation, initCall));
+    }
+
+    function confirmDeployCode(bytes memory code) internal virtual returns (address) {
+        requireConfirmDeploy();
+
+        return deployCodeWrapper(code);
+    }
+
+    function deployProxy(address implementation, bytes memory initCall) internal virtual returns (address) {
+        return deployCodeWrapper(getDeployProxyCode(implementation, initCall));
+    }
+
+    function deployCodeWrapper(bytes memory code) internal virtual returns (address addr) {
+        addr = deployCode(code);
+
+        firstTimeDeployed[addr] = true;
+
+        require(addr.code.length != 0, "Failed to deploy code.");
+    }
+
+    /* ------------- utils ------------- */
+
+    function deployCode(bytes memory code) internal virtual returns (address addr) {
         assembly {
-            hasCode_ := iszero(iszero(extcodesize(addr)))
+            addr := create(0, add(code, 0x20), mload(code))
         }
     }
 
-    function assertFileExists(string memory file) internal virtual {
-        string[] memory script = new string[](2);
-        script[0] = "ls";
-        script[1] = file;
-
-        bool exists;
-        try vm.ffi(script) returns (bytes memory res) {
-            if (bytes(res).length != 0) {
-                exists = true;
-            }
-        } catch {}
-
-        if (!exists) {
-            console.log("Unable to locate file '%s'.", file);
-            revert("File does not exist.");
+    function hasCode(address addr) internal view virtual returns (bool hasCode_) {
+        assembly {
+            hasCode_ := iszero(iszero(extcodesize(addr)))
         }
     }
 
@@ -581,6 +592,8 @@ contract UpgradeScripts is Script {
         registeredContractAddress[key] = addr;
 
         registeredContracts.push(ContractData({key: key, name: name, addr: addr}));
+
+        vm.label(addr, key);
     }
 
     function generateRegisteredContractsJson() internal virtual returns (string memory json) {
@@ -624,6 +637,24 @@ contract UpgradeScripts is Script {
         }
     }
 
+    /* ------------- filePath ------------- */
+
+    function getDeploymentsPath(string memory path) internal virtual returns (string memory) {
+        return string.concat("deployments/", vm.toString(block.chainid), "/", path);
+    }
+
+    function getDeploymentsDataPath(string memory path) internal virtual returns (string memory) {
+        return getDeploymentsPath(string.concat("data/", path));
+    }
+
+    function getCreationCodeHashFilePath(address addr) internal virtual returns (string memory) {
+        return getDeploymentsDataPath(string.concat(vm.toString(addr), ".creation-code-hash"));
+    }
+
+    function getStorageLayoutFilePath(address addr) internal virtual returns (string memory) {
+        return getDeploymentsDataPath(string.concat(vm.toString(addr), ".storage-layout"));
+    }
+
     /* ------------- prints ------------- */
 
     function title(string memory name) internal view virtual {
@@ -631,7 +662,7 @@ contract UpgradeScripts is Script {
         console.log("%s:\n", name);
     }
 
-    function label(
+    function contractLabel(
         string memory contractName,
         address addr,
         string memory key
