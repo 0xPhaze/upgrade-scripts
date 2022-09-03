@@ -237,30 +237,40 @@ contract UpgradeScripts is Script {
     /* ------------- snippets ------------- */
 
     function loadEnvVars() internal virtual {
-        UPGRADE_SCRIPTS_RESET = tryLoadEnvBool("UPGRADE_SCRIPTS_RESET", "US_RESET");
-        UPGRADE_SCRIPTS_BYPASS = tryLoadEnvBool("UPGRADE_SCRIPTS_BYPASS", "US_BYPASS");
-        UPGRADE_SCRIPTS_DRY_RUN = tryLoadEnvBool("UPGRADE_SCRIPTS_DRY_RUN", "US_DRY_RUN");
-        UPGRADE_SCRIPTS_ATTACH_ONLY = tryLoadEnvBool("UPGRADE_SCRIPTS_ATTACH_ONLY", "US_ATTACH_ONLY");
-        UPGRADE_SCRIPTS_CONFIRM_DEPLOY = tryLoadEnvBool("UPGRADE_SCRIPTS_CONFIRM_DEPLOY", "US_CONFIRM_DEPLOY"); // prettier-ignore
-        UPGRADE_SCRIPTS_CONFIRM_UPGRADE = tryLoadEnvBool("UPGRADE_SCRIPTS_CONFIRM_UPGRADE", "US_CONFIRM_UPGRADE");
+        // silently bypass everything if set in the scripts
+        if (!UPGRADE_SCRIPTS_BYPASS) {
+            UPGRADE_SCRIPTS_RESET = tryLoadEnvBool(UPGRADE_SCRIPTS_RESET, "UPGRADE_SCRIPTS_RESET", "US_RESET");
+            UPGRADE_SCRIPTS_BYPASS = tryLoadEnvBool(UPGRADE_SCRIPTS_BYPASS, "UPGRADE_SCRIPTS_BYPASS", "US_BYPASS");
+            UPGRADE_SCRIPTS_DRY_RUN = tryLoadEnvBool(UPGRADE_SCRIPTS_DRY_RUN, "UPGRADE_SCRIPTS_DRY_RUN", "US_DRY_RUN");
+            UPGRADE_SCRIPTS_ATTACH_ONLY = tryLoadEnvBool(UPGRADE_SCRIPTS_ATTACH_ONLY, "UPGRADE_SCRIPTS_ATTACH_ONLY", "US_ATTACH_ONLY"); // prettier-ignore
+            UPGRADE_SCRIPTS_CONFIRM_DEPLOY = tryLoadEnvBool(UPGRADE_SCRIPTS_CONFIRM_DEPLOY, "UPGRADE_SCRIPTS_CONFIRM_DEPLOY", "US_CONFIRM_DEPLOY"); // prettier-ignore
+            UPGRADE_SCRIPTS_CONFIRM_UPGRADE = tryLoadEnvBool(UPGRADE_SCRIPTS_CONFIRM_UPGRADE, "UPGRADE_SCRIPTS_CONFIRM_UPGRADE", "US_CONFIRM_UPGRADE"); // prettier-ignore
 
-        if (
-            UPGRADE_SCRIPTS_RESET ||
-            UPGRADE_SCRIPTS_BYPASS ||
-            UPGRADE_SCRIPTS_DRY_RUN ||
-            UPGRADE_SCRIPTS_ATTACH_ONLY ||
-            UPGRADE_SCRIPTS_CONFIRM_DEPLOY ||
-            UPGRADE_SCRIPTS_CONFIRM_UPGRADE
-        ) console.log("");
+            if (
+                UPGRADE_SCRIPTS_RESET ||
+                UPGRADE_SCRIPTS_BYPASS ||
+                UPGRADE_SCRIPTS_DRY_RUN ||
+                UPGRADE_SCRIPTS_ATTACH_ONLY ||
+                UPGRADE_SCRIPTS_CONFIRM_DEPLOY ||
+                UPGRADE_SCRIPTS_CONFIRM_UPGRADE
+            ) console.log("");
+        }
     }
 
-    function tryLoadEnvBool(string memory varName, string memory varAlias) internal virtual returns (bool val) {
-        try vm.envBool(varName) returns (bool val_) {
-            val = val_;
-        } catch {
-            try vm.envBool(varAlias) returns (bool val_) {
+    function tryLoadEnvBool(
+        bool defaultVal,
+        string memory varName,
+        string memory varAlias
+    ) internal virtual returns (bool val) {
+        val = defaultVal;
+        if (!val) {
+            try vm.envBool(varName) returns (bool val_) {
                 val = val_;
-            } catch {}
+            } catch {
+                try vm.envBool(varAlias) returns (bool val_) {
+                    val = val_;
+                } catch {}
+            }
         }
         if (val) console.log("%s=true", varName);
     }
