@@ -470,10 +470,11 @@ contract UpgradeScripts is Script {
     /// makes an initial delegatecall to `implementation` with calldata `initCall` (if `initCall` != "")
     function getDeployProxyCode(address implementation, bytes memory initCall)
         internal
-        pure
+        view
         virtual
         returns (bytes memory)
     {
+        this;
         return abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(implementation, initCall));
     }
 
@@ -552,10 +553,10 @@ contract UpgradeScripts is Script {
         if (block.chainid == 4) return true; // Rinkeby
         if (block.chainid == 5) return true; // Goerli
         if (block.chainid == 420) return true; // Optimism
-        if (block.chainid == 3_1337) return true; // Anvil
+        if (block.chainid == 31_337) return true; // Anvil
         if (block.chainid == 80_001) return true; // Mumbai
         if (block.chainid == 421_611) return true; // Arbitrum
-        if (block.chainid == 111_55_111) return true; // Sepolia
+        if (block.chainid == 11_155_111) return true; // Sepolia
         return false;
     }
 
@@ -609,7 +610,8 @@ contract UpgradeScripts is Script {
     function generateRegisteredContractsJson() internal virtual returns (string memory json) {
         if (registeredContracts.length == 0) return "";
 
-        json = "{\n";
+        json = string.concat("{\n", '  "git-commit-hash": "', getGitCommitHash(), '",\n');
+
         for (uint256 i; i < registeredContracts.length; i++) {
             json = string.concat(
                 json,
@@ -645,6 +647,29 @@ contract UpgradeScripts is Script {
                 console.log("Deployments saved to %s.", getDeploymentsPath(string.concat("deploy-latest.json")));
             }
         }
+    }
+
+    function getGitCommitHash() internal virtual returns (string memory) {
+        string[] memory script = new string[](3);
+        script[0] = "git";
+        script[1] = "rev-parse";
+        script[2] = "HEAD";
+
+        bytes memory hash = vm.ffi(script);
+
+        if (hash.length != 20) {
+            console.log("Unable to get commit hash.");
+            return "";
+        }
+
+        string memory hashStr = vm.toString(hash);
+
+        // remove the "0x" prefix
+        assembly {
+            mstore(add(hashStr, 2), sub(mload(hashStr), 2))
+            hashStr := add(hashStr, 2)
+        }
+        return hashStr;
     }
 
     /* ------------- filePath ------------- */
