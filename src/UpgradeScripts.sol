@@ -5,6 +5,7 @@ import "forge-std/Script.sol";
 
 import {UUPSUpgrade} from "UDS/proxy/UUPSUpgrade.sol";
 import {ERC1967Proxy, ERC1967_PROXY_STORAGE_SLOT} from "UDS/proxy/ERC1967Proxy.sol";
+import {LibEnumerableSet, Uint256Set, Bytes32Set} from "UDS/lib/LibEnumerableSet.sol";
 
 interface VmParseJson {
     function parseJson(string calldata, string calldata) external returns (bytes memory);
@@ -13,8 +14,10 @@ interface VmParseJson {
 }
 
 contract UpgradeScripts is Script {
+    using LibEnumerableSet for Uint256Set;
+    using LibEnumerableSet for Bytes32Set;
+
     struct ContractData {
-        string name;
         string key;
         address addr;
     }
@@ -26,17 +29,20 @@ contract UpgradeScripts is Script {
     bool UPGRADE_SCRIPTS_CONFIRM_DEPLOY; // confirm deployments when running on mainnet
     bool UPGRADE_SCRIPTS_CONFIRM_UPGRADE; // confirm upgrades when running on mainnet
 
-    bool __latestDeploymentsJsonLoaded;
-    string __latestDeploymentsJson;
+    // mappings chainid => ...
+    mapping(uint256 => mapping(address => bool)) firstTimeDeployed; // set to true for contracts that are just deployed; useful for inits
+    mapping(uint256 => mapping(address => mapping(address => bool))) isUpgradeSafe; // whether a contract => contract is deemed upgrade safe
 
-    ContractData[] registeredContracts; // contracts registered through `setUpContract` or `setUpProxy`
-    mapping(address => string) registeredContractKey; // address => key mapping
-    mapping(address => string) registeredContractName; // address => name mapping
-    mapping(string => address) registeredContractAddress; // key => address mapping
+    Uint256Set registeredChainIds; // chainids that have registered contracts
+    mapping(uint256 => ContractData[]) registeredContracts; // contracts registered through `setUpContract` or `setUpProxy`
+    mapping(uint256 => mapping(address => string)) registeredContractName; // chainid => address => name mapping
+    mapping(uint256 => mapping(string => address)) registeredContractAddress; // chainid => key => address mapping
 
-    mapping(address => bool) firstTimeDeployed; // set to true for contracts that are just deployed; useful for inits
-    mapping(address => bool) storageLayoutGenerated; // cache to not repeat slow layout generation
-    mapping(address => mapping(address => bool)) isUpgradeSafe; // whether a contract => contract is deemed upgrade safe
+    // cache
+    mapping(string => bool) __madeDir;
+    mapping(uint256 => bool) __latestDeploymentsLoaded;
+    mapping(uint256 => string) __latestDeploymentsJson;
+    mapping(uint256 => mapping(address => bool)) __storageLayoutGenerated;
 
     constructor() {
         setUpUpgradeScripts(); // allows for override
@@ -54,8 +60,7 @@ contract UpgradeScripts is Script {
                 console.log("Dry-run enabled (`FFI=false`).");
             }
         } else {
-            // make sure the 'deployments' directory exists
-            mkdir(getDeploymentsDataPath(""));
+            // make sure the 'deployments/data' directory exists
         }
     }
 
@@ -131,7 +136,7 @@ contract UpgradeScripts is Script {
         // run this check always, as otherwise the error-message is confusing
         assertIsERC1967Upgrade(implementation);
 
-        string memory contractName = registeredContractName[implementation];
+        string memory contractName = registeredContractName[block.chainid][implementation];
         string memory keyOrContractName = bytes(key).length == 0 ? string.concat(contractName, "Proxy") : key;
 
         if (UPGRADE_SCRIPTS_BYPASS) {
@@ -287,21 +292,27 @@ contract UpgradeScripts is Script {
         }
     }
 
-    function loadLatestDeployedAddress(string memory key) internal virtual returns (address addr) {
-        if (!__latestDeploymentsJsonLoaded) {
+    function loadLatestDeployedAddress(string memory key) internal virtual returns (address) {
+        return loadLatestDeployedAddress(key, block.chainid);
+    }
+
+    function loadLatestDeployedAddress(string memory key, uint256 chainId) internal virtual returns (address) {
+        if (!__latestDeploymentsLoaded[chainId]) {
             try vm.readFile(getDeploymentsPath("deploy-latest.json")) returns (string memory json) {
-                __latestDeploymentsJson = json;
+                __latestDeploymentsJson[chainId] = json;
             } catch {}
-            __latestDeploymentsJsonLoaded = true;
+            __latestDeploymentsLoaded[chainId] = true;
         }
 
-        if (bytes(__latestDeploymentsJson).length == 0) return addr;
+        if (bytes(__latestDeploymentsJson[chainId]).length != 0) {
+            try VmParseJson(address(vm)).parseJson(__latestDeploymentsJson[chainId], string.concat(".", key)) returns (
+                bytes memory data
+            ) {
+                if (data.length == 32) return abi.decode(data, (address));
+            } catch {}
+        }
 
-        try VmParseJson(address(vm)).parseJson(__latestDeploymentsJson, string.concat(".", key)) returns (
-            bytes memory data
-        ) {
-            if (data.length == 32) return abi.decode(data, (address));
-        } catch {}
+        return address(0);
     }
 
     function loadProxyStoredImplementation(address proxy) internal virtual returns (address implementation) {
@@ -323,7 +334,7 @@ contract UpgradeScripts is Script {
     }
 
     function generateStorageLayoutFile(string memory contractName, address implementation) internal virtual {
-        if (storageLayoutGenerated[implementation]) return;
+        if (__storageLayoutGenerated[block.chainid][implementation]) return;
 
         if (!isFFIEnabled()) {
             return console.log("SKIPPING storage layout mapping for %s (`FFI=false`).\n", contractLabel(contractName, implementation, '')); // prettier-ignore
@@ -333,6 +344,9 @@ contract UpgradeScripts is Script {
 
         // assert Contract exists
         getContractCode(contractName);
+
+        // mkdir if not already
+        mkdir(getDeploymentsPath("data/"));
 
         string[] memory script = new string[](4);
         script[0] = "forge";
@@ -344,7 +358,7 @@ contract UpgradeScripts is Script {
 
         vm.writeFile(getStorageLayoutFilePath(implementation), string(out));
 
-        storageLayoutGenerated[implementation] = true;
+        __storageLayoutGenerated[block.chainid][implementation] = true;
     }
 
     function upgradeSafetyChecks(
@@ -354,7 +368,7 @@ contract UpgradeScripts is Script {
     ) internal virtual {
         // note that `assertIsERC1967Upgrade(newImplementation);` is always run beforehand in any case
 
-        if (isUpgradeSafe[oldImplementation][newImplementation]) {
+        if (isUpgradeSafe[block.chainid][oldImplementation][newImplementation]) {
             return console.log("Storage layout compatibility check [%s <-> %s]: Pass (`isUpgradeSafe=true`)", oldImplementation, newImplementation); // prettier-ignore
         }
         if (!isFFIEnabled()) {
@@ -388,16 +402,18 @@ contract UpgradeScripts is Script {
             console.log(string(diff));
 
             console.log("\nIf you believe the storage layout is compatible, add the following to the beginning of `run()` in your deploy script.\n```"); // prettier-ignore
-            console.log("if (block.chainid == %s) isUpgradeSafe[%s][%s] = true;\n```", block.chainid, oldImplementation, newImplementation); // prettier-ignore
+            console.log("isUpgradeSafe[%s][%s][%s] = true;\n```", block.chainid, oldImplementation, newImplementation); // prettier-ignore
 
             revert("Contract storage layout changed and might not be compatible.");
         }
 
-        isUpgradeSafe[oldImplementation][newImplementation] = true;
+        isUpgradeSafe[block.chainid][oldImplementation][newImplementation] = true;
     }
 
     function saveCreationCodeHash(address addr, bytes32 creationCodeHash) internal virtual {
         if (UPGRADE_SCRIPTS_DRY_RUN) return;
+
+        mkdir(getDeploymentsPath("data/"));
 
         string memory path = getCreationCodeHashFilePath(addr);
 
@@ -530,7 +546,7 @@ contract UpgradeScripts is Script {
     function deployCodeWrapper(bytes memory code) internal virtual returns (address addr) {
         addr = deployCode(code);
 
-        firstTimeDeployed[addr] = true;
+        firstTimeDeployed[block.chainid][addr] = true;
 
         require(addr.code.length != 0, "Failed to deploy code.");
     }
@@ -550,13 +566,17 @@ contract UpgradeScripts is Script {
     }
 
     function isTestnet() internal view virtual returns (bool) {
-        if (block.chainid == 4) return true; // Rinkeby
-        if (block.chainid == 5) return true; // Goerli
-        if (block.chainid == 420) return true; // Optimism
-        if (block.chainid == 31_337) return true; // Anvil
-        if (block.chainid == 80_001) return true; // Mumbai
-        if (block.chainid == 421_611) return true; // Arbitrum
-        if (block.chainid == 11_155_111) return true; // Sepolia
+        uint256 chainId = block.chainid;
+
+        if (chainId == 4) return true; // Rinkeby
+        if (chainId == 5) return true; // Goerli
+        if (chainId == 420) return true; // Optimism
+        if (chainId == 31_337) return true; // Anvil
+        if (chainId == 31_338) return true; // Anvil
+        if (chainId == 80_001) return true; // Mumbai
+        if (chainId == 421_611) return true; // Arbitrum
+        if (chainId == 11_155_111) return true; // Sepolia
+
         return false;
     }
 
@@ -571,12 +591,16 @@ contract UpgradeScripts is Script {
     }
 
     function mkdir(string memory path) internal virtual {
+        if (__madeDir[path]) return;
+
         string[] memory script = new string[](3);
         script[0] = "mkdir";
         script[1] = "-p";
         script[2] = path;
 
         vm.ffi(script);
+
+        __madeDir[path] = true;
     }
 
     // hacky until vm.parseBytes32 comes around
@@ -592,59 +616,74 @@ contract UpgradeScripts is Script {
         string memory name,
         address addr
     ) internal virtual {
-        if (registeredContractAddress[key] != address(0)) {
-            console.log("Duplicate entry for key %s (%s) found when registering contract.", key, registeredContractAddress[key]); // prettier-ignore
+        uint256 chainId = block.chainid;
+
+        if (registeredContractAddress[chainId][key] != address(0)) {
+            console.log("Duplicate entry for key %s (%s) found when registering contract.", key, registeredContractAddress[chainId][key]); // prettier-ignore
 
             revert("Duplicate key.");
         }
 
-        registeredContractKey[addr] = key;
-        registeredContractName[addr] = name;
-        registeredContractAddress[key] = addr;
+        registeredChainIds.add(chainId);
 
-        registeredContracts.push(ContractData({key: key, name: name, addr: addr}));
+        registeredContractName[chainId][addr] = name;
+        registeredContractAddress[chainId][key] = addr;
+
+        registeredContracts[chainId].push(ContractData({key: key, addr: addr}));
 
         vm.label(addr, key);
-    }
-
-    function generateRegisteredContractsJson() internal virtual returns (string memory json) {
-        if (registeredContracts.length == 0) return "";
-
-        json = string.concat("{\n", '  "git-commit-hash": "', getGitCommitHash(), '",\n');
-
-        for (uint256 i; i < registeredContracts.length; i++) {
-            json = string.concat(
-                json,
-                '  "',
-                registeredContracts[i].key,
-                '": "',
-                vm.toString(registeredContracts[i].addr),
-                i + 1 == registeredContracts.length ? '"\n' : '",\n'
-            );
-        }
-        json = string.concat(json, "}");
     }
 
     function logDeployments() internal view virtual {
         title("Registered Contracts");
 
-        for (uint256 i; i < registeredContracts.length; i++) {
-            console.log("%s=%s", registeredContracts[i].key, registeredContracts[i].addr);
-        }
+        for (uint256 i; i < registeredChainIds.length(); i++) {
+            uint256 chainId = registeredChainIds.at(i);
 
-        console.log("");
+            console.log("Chain id %s:\n", chainId);
+            for (uint256 j; j < registeredContracts[chainId].length; j++) {
+                console.log("%s=%s", registeredContracts[chainId][j].key, registeredContracts[chainId][j].addr);
+            }
+
+            console.log("");
+        }
+    }
+
+    function generateRegisteredContractsJson(uint256 chainId) internal virtual returns (string memory json) {
+        if (registeredContracts[chainId].length == 0) return "";
+
+        json = string.concat("{\n", '  "git-commit-hash": "', getGitCommitHash(), '",\n');
+
+        for (uint256 i; i < registeredContracts[chainId].length; i++) {
+            json = string.concat(
+                json,
+                '  "',
+                registeredContracts[chainId][i].key,
+                '": "',
+                vm.toString(registeredContracts[chainId][i].addr),
+                i + 1 == registeredContracts[chainId].length ? '"\n' : '",\n'
+            );
+        }
+        json = string.concat(json, "}");
     }
 
     function storeLatestDeployments() internal virtual {
         if (!UPGRADE_SCRIPTS_DRY_RUN) {
-            string memory json = generateRegisteredContractsJson();
+            for (uint256 i; i < registeredChainIds.length(); i++) {
+                uint256 chainId = registeredChainIds.at(i);
 
-            if (keccak256(bytes(json)) == keccak256(bytes(__latestDeploymentsJson))) {
-                console.log("\nNo changes detected.");
-            } else {
-                vm.writeFile(getDeploymentsPath(string.concat("deploy-latest.json")), json);
-                vm.writeFile(getDeploymentsPath(string.concat("deploy-", vm.toString(block.timestamp), ".json")), json);
-                console.log("Deployments saved to %s.", getDeploymentsPath(string.concat("deploy-latest.json")));
+                string memory json = generateRegisteredContractsJson(chainId);
+
+                if (keccak256(bytes(json)) == keccak256(bytes(__latestDeploymentsJson[chainId]))) {
+                    console.log("Chain id %s: No changes detected.", chainId);
+                } else {
+                    mkdir(getDeploymentsPath("", chainId));
+
+                    vm.writeFile(getDeploymentsPath(string.concat("deploy-latest.json"), chainId), json);
+                    vm.writeFile(getDeploymentsPath(string.concat("deploy-", vm.toString(block.timestamp), ".json"), chainId), json); // prettier-ignore
+
+                    console.log("Chain id %s: Deployments saved to %s.", chainId, getDeploymentsPath("deploy-latest.json", chainId)); // prettier-ignore
+                }
             }
         }
     }
@@ -675,19 +714,19 @@ contract UpgradeScripts is Script {
     /* ------------- filePath ------------- */
 
     function getDeploymentsPath(string memory path) internal virtual returns (string memory) {
-        return string.concat("deployments/", vm.toString(block.chainid), "/", path);
+        return getDeploymentsPath(path, block.chainid);
     }
 
-    function getDeploymentsDataPath(string memory path) internal virtual returns (string memory) {
-        return getDeploymentsPath(string.concat("data/", path));
+    function getDeploymentsPath(string memory path, uint256 chainId) internal virtual returns (string memory) {
+        return string.concat("deployments/", vm.toString(chainId), "/", path);
     }
 
     function getCreationCodeHashFilePath(address addr) internal virtual returns (string memory) {
-        return getDeploymentsDataPath(string.concat(vm.toString(addr), ".creation-code-hash"));
+        return getDeploymentsPath(string.concat("data/", vm.toString(addr), ".creation-code-hash"));
     }
 
     function getStorageLayoutFilePath(address addr) internal virtual returns (string memory) {
-        return getDeploymentsDataPath(string.concat(vm.toString(addr), ".storage-layout"));
+        return getDeploymentsPath(string.concat("data/", vm.toString(addr), ".storage-layout"));
     }
 
     /* ------------- prints ------------- */

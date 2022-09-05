@@ -16,7 +16,7 @@ forge script deploy --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a
 contract deploy is ExampleSetupScript {
     function run() external {
         // uncommenting this line would mark the two contracts as having a compatible storage layout
-        // if (block.chainid == 31337) isUpgradeSafe[0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0][0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9] = true; // prettier-ignore
+        // isUpgradeSafe[31337][0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0][0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9] = true; // prettier-ignore
 
         // will run `vm.startBroadcast();` if ffi is enabled
         // ffi is required for running storage layout compatibility checks
