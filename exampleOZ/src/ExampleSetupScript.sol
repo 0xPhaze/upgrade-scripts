@@ -25,7 +25,7 @@ contract ExampleSetupScript is UpgradeScripts {
         UUPSUpgradeable(proxy).upgradeTo(newImplementation);
     }
 
-    // /// @dev uses forge's built-in create2 deployer (only works for specific chains, or: use your own!)
+    // /// @dev override using forge's built-in create2 deployer (only works for specific chains, or: use your own!)
     // function deployCode(bytes memory code) internal override returns (address addr) {
     //     uint256 salt = 0x1234;
 

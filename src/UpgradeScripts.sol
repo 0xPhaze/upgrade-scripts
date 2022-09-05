@@ -97,7 +97,7 @@ contract UpgradeScripts is Script {
                     console.log("Stored %s does not contain code.", contractLabel(contractName, implementation, key));
                     console.log("Make sure '%s' contains all the latest deployments.", getDeploymentsPath("deploy-latest.json")); // prettier-ignore
 
-                    revert("Invalid contract address.");
+                    throwError("Invalid contract address.");
                 }
 
                 if (creationCodeHashMatches(implementation, keccak256(creationCode))) {
@@ -112,7 +112,7 @@ contract UpgradeScripts is Script {
                 console.log("Implementation for %s not found.", contractLabel(contractName, implementation, key));
                 deployNew = true;
 
-                if (UPGRADE_SCRIPTS_ATTACH_ONLY) revert("Contract deployment is missing.");
+                if (UPGRADE_SCRIPTS_ATTACH_ONLY) throwError("Contract deployment is missing.");
             }
         }
 
@@ -155,7 +155,7 @@ contract UpgradeScripts is Script {
             console.log("Make sure the implementation type was set up via `setUpContract` for its type to be registered."); // prettier-ignore
             console.log('Otherwise it can be set explicitly by adding `registeredContractName[%s] = "MyContract";`.', implementation); // prettier-ignore
 
-            revert("Could not identify contract type.");
+            throwError("Could not identify contract type.");
         }
 
         bool deployNew = UPGRADE_SCRIPTS_RESET;
@@ -184,7 +184,7 @@ contract UpgradeScripts is Script {
             } else {
                 console.log("Existing %s not found.", proxyLabel(proxy, contractName, implementation, key));
 
-                if (UPGRADE_SCRIPTS_ATTACH_ONLY) revert("Contract deployment is missing.");
+                if (UPGRADE_SCRIPTS_ATTACH_ONLY) throwError("Contract deployment is missing.");
 
                 deployNew = true;
             }
@@ -404,7 +404,7 @@ contract UpgradeScripts is Script {
             console.log("\nIf you believe the storage layout is compatible, add the following to the beginning of `run()` in your deploy script.\n```"); // prettier-ignore
             console.log("isUpgradeSafe[%s][%s][%s] = true;\n```", block.chainid, oldImplementation, newImplementation); // prettier-ignore
 
-            revert("Contract storage layout changed and might not be compatible.");
+            throwError("Contract storage layout changed and might not be compatible.");
         }
 
         isUpgradeSafe[block.chainid][oldImplementation][newImplementation] = true;
@@ -448,24 +448,24 @@ contract UpgradeScripts is Script {
 
         if (!exists) {
             console.log("Unable to locate file '%s'.", file);
-            revert("File does not exist.");
+            throwError("File does not exist.");
         }
     }
 
     function assertIsERC1967Upgrade(address implementation) internal virtual {
         if (implementation.code.length == 0) {
             console.log("No code stored at %s.", implementation);
-            revert("Invalid contract address.");
+            throwError("Invalid contract address.");
         }
 
         try UUPSUpgrade(implementation).proxiableUUID() returns (bytes32 uuid) {
             if (uuid != ERC1967_PROXY_STORAGE_SLOT) {
                 console.log("Invalid proxiable UUID for implementation %s.", implementation);
-                revert("Contract not upgradeable.");
+                throwError("Contract not upgradeable.");
             }
         } catch {
             console.log("Contract %s does not implement proxiableUUID().", implementation);
-            revert("Contract not upgradeable.");
+            throwError("Contract not upgradeable.");
         }
     }
 
@@ -478,7 +478,7 @@ contract UpgradeScripts is Script {
 
         if (code.length == 0) {
             console.log("Unable to find contract named '%s'.", contractName);
-            revert("Contract does not exist.");
+            throwError("Contract does not exist.");
         }
     }
 
@@ -603,6 +603,14 @@ contract UpgradeScripts is Script {
         __madeDir[path] = true;
     }
 
+    function throwError(string memory message) internal view {
+        if (bytes(message).length != 0) console.log("\nError: %s", message);
+
+        assembly {
+            return(0, 0)
+        }
+    }
+
     // hacky until vm.parseBytes32 comes around
     function parseBytes32(string memory data) internal virtual returns (bytes32) {
         vm.setEnv("_TMP", data);
@@ -619,9 +627,10 @@ contract UpgradeScripts is Script {
         uint256 chainId = block.chainid;
 
         if (registeredContractAddress[chainId][key] != address(0)) {
-            console.log("Duplicate entry for key %s (%s) found when registering contract.", key, registeredContractAddress[chainId][key]); // prettier-ignore
+            console.log("Duplicate entry for key [%s] found when registering contract.", key);
+            console.log("Found: %s(%s)", key, registeredContractAddress[chainId][key]);
 
-            revert("Duplicate key.");
+            throwError("Duplicate key.");
         }
 
         registeredChainIds.add(chainId);
