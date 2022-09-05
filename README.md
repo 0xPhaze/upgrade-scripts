@@ -149,7 +149,7 @@ Diff:
   
 If you believe the storage layout is compatible, add the following to the beginning of `run()` in your deploy script.
 `
-if (block.chainid == 31337) isUpgradeSafe[0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0][0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9] = true;
+isUpgradeSafe[31337][0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0][0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9] = true;
 `
 ```
 
@@ -161,7 +161,7 @@ Another peculiarity to account for is that, since dry-run uses `vm.prank` instea
 
 Since we know it is safe, we can add the line
 ```solidity
-if (block.chainid == 31337) isUpgradeSafe[0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0][0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9] = true;
+isUpgradeSafe[31337][0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0][0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9] = true;
 ```
 to the start of `run()` in [deploy.s.sol](./example/script/deploy.s.sol).
 If we re-run the script now, it will deploy a new implementation, perform the upgrade for our proxy and update the contract addresses in `deploy-latest.json`.
