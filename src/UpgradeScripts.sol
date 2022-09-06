@@ -606,8 +606,9 @@ contract UpgradeScripts is Script {
     function throwError(string memory message) internal view {
         if (bytes(message).length != 0) console.log("\nError: %s", message);
 
-        // must revert if not dry run to stop broadcasting transactions
-        if (!UPGRADE_SCRIPTS_DRY_RUN) revert(string.concat(message, '\nEnable "dry-run" `UPGRADE_SCRIPTS_DRY_RUN=true` to see the full error message.')); // prettier-ignore
+        // must revert if not dry run to stop broadcasting transactions?
+        // if (!UPGRADE_SCRIPTS_DRY_RUN) revert(string.concat(message, '\nEnable "dry-run" `UPGRADE_SCRIPTS_DRY_RUN=true` to see the full error message.')); // prettier-ignore
+        if (!UPGRADE_SCRIPTS_DRY_RUN) revert(message);
 
         assembly {
             return(0, 0)
