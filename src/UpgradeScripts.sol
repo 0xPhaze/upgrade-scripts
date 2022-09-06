@@ -298,7 +298,7 @@ contract UpgradeScripts is Script {
 
     function loadLatestDeployedAddress(string memory key, uint256 chainId) internal virtual returns (address) {
         if (!__latestDeploymentsLoaded[chainId]) {
-            try vm.readFile(getDeploymentsPath("deploy-latest.json")) returns (string memory json) {
+            try vm.readFile(getDeploymentsPath("deploy-latest.json", chainId)) returns (string memory json) {
                 __latestDeploymentsJson[chainId] = json;
             } catch {}
             __latestDeploymentsLoaded[chainId] = true;
