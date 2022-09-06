@@ -4,8 +4,8 @@ pragma solidity ^0.8.0;
 import "forge-std/Script.sol";
 
 import {UUPSUpgrade} from "UDS/proxy/UUPSUpgrade.sol";
-import {ERC1967Proxy, ERC1967_PROXY_STORAGE_SLOT} from "UDS/proxy/ERC1967Proxy.sol";
 import {LibEnumerableSet, Uint256Set} from "UDS/lib/LibEnumerableSet.sol";
+import {ERC1967Proxy, ERC1967_PROXY_STORAGE_SLOT} from "UDS/proxy/ERC1967Proxy.sol";
 
 /// @title Foundry Upgrade Scripts
 /// @author 0xPhaze (https://github.com/0xPhaze/upgrade-scripts)
@@ -57,10 +57,10 @@ contract UpgradeScripts is Script {
         }
     }
 
+    /* ------------- setUp ------------- */
+
     /// @dev allows for `UPGRADE_SCRIPTS_*` variables to be set in override
     function setUpUpgradeScripts() internal virtual {}
-
-    /* ------------- setUp ------------- */
 
     /// @notice Sets-up a contract. If a previous deployment is found,
     ///         the creation-code-hash is checked against the stored contract's
@@ -111,6 +111,7 @@ contract UpgradeScripts is Script {
                 }
             } else {
                 console.log("Implementation for %s not found.", contractLabel(contractName, implementation, key));
+
                 deployNew = true;
 
                 if (UPGRADE_SCRIPTS_ATTACH_ONLY) throwError("Contract deployment is missing.");
@@ -279,6 +280,7 @@ contract UpgradeScripts is Script {
         string memory varAlias
     ) internal virtual returns (bool val) {
         val = defaultVal;
+
         if (!val) {
             try vm.envBool(varName) returns (bool val_) {
                 val = val_;
@@ -288,6 +290,7 @@ contract UpgradeScripts is Script {
                 } catch {}
             }
         }
+
         if (val) console.log("%s=true", varName);
     }
 
@@ -429,7 +432,7 @@ contract UpgradeScripts is Script {
         vm.writeFile(path, vm.toString(creationCodeHash));
     }
 
-    // .codehash is an improper check for contracts that use immutables
+    /// @dev .codehash is an improper check for contracts that use immutables
     function creationCodeHashMatches(address addr, bytes32 newCreationCodeHash) internal virtual returns (bool) {
         string memory path = getCreationCodeHashFilePath(addr);
 
@@ -457,6 +460,7 @@ contract UpgradeScripts is Script {
 
         if (!exists) {
             console.log("Unable to locate file '%s'.", file);
+
             throwError("File does not exist.");
         }
     }
@@ -464,16 +468,19 @@ contract UpgradeScripts is Script {
     function assertIsERC1967Upgrade(address implementation) internal virtual {
         if (implementation.code.length == 0) {
             console.log("No code stored at %s.", implementation);
+
             throwError("Invalid contract address.");
         }
 
         try UUPSUpgrade(implementation).proxiableUUID() returns (bytes32 uuid) {
             if (uuid != ERC1967_PROXY_STORAGE_SLOT) {
                 console.log("Invalid proxiable UUID for implementation %s.", implementation);
+
                 throwError("Contract not upgradeable.");
             }
         } catch {
             console.log("Contract %s does not implement proxiableUUID().", implementation);
+
             throwError("Contract not upgradeable.");
         }
     }
@@ -487,6 +494,7 @@ contract UpgradeScripts is Script {
 
         if (code.length == 0) {
             console.log("Unable to find contract named '%s'.", contractName);
+
             throwError("Contract does not exist.");
         }
     }
@@ -596,6 +604,7 @@ contract UpgradeScripts is Script {
     function isFFIEnabled() internal virtual returns (bool) {
         string[] memory script = new string[](1);
         script[0] = "echo";
+
         try vm.ffi(script) {
             return true;
         } catch {
@@ -696,14 +705,14 @@ contract UpgradeScripts is Script {
                 string memory json = generateRegisteredContractsJson(chainId);
 
                 if (keccak256(bytes(json)) == keccak256(bytes(__latestDeploymentsJson[chainId]))) {
-                    console.log("Chain id %s: No changes detected.", chainId);
+                    console.log("No changes detected.", chainId);
                 } else {
                     mkdir(getDeploymentsPath("", chainId));
 
                     vm.writeFile(getDeploymentsPath(string.concat("deploy-latest.json"), chainId), json);
                     vm.writeFile(getDeploymentsPath(string.concat("deploy-", vm.toString(block.timestamp), ".json"), chainId), json); // prettier-ignore
 
-                    console.log("Chain id %s: Deployments saved to %s.", chainId, getDeploymentsPath("deploy-latest.json", chainId)); // prettier-ignore
+                    console.log("Deployments saved to %s.", getDeploymentsPath("deploy-latest.json", chainId)); // prettier-ignore
                 }
             }
         }
