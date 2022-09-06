@@ -168,6 +168,27 @@ If we re-run the script now, it will deploy a new implementation, perform the up
 
 ## Extra Notes
 
+### Environment Variables
+
+These variables can be set in before running a script, by overriding `setUpUpgradeScripts()`
+or by passing them in with the command line. They can also be abbreviated (`US_RESET=true forge script ...`).
+
+```
+ bool UPGRADE_SCRIPTS_RESET; // re-deploys all contracts
+ bool UPGRADE_SCRIPTS_BYPASS; // deploys contracts without any checks whatsoever
+ bool UPGRADE_SCRIPTS_DRY_RUN; // doesn't overwrite new deployments in deploy-latest.json
+ bool UPGRADE_SCRIPTS_ATTACH_ONLY; // doesn't deploy contracts, just attaches with checks
+ bool UPGRADE_SCRIPTS_CONFIRM_DEPLOY; // confirm deployments when running on mainnet
+ bool UPGRADE_SCRIPTS_CONFIRM_UPGRADE; // confirm upgrades when running on mainnet
+```
+
+### Accessing Deployments from other Chains
+
+Deployed addresses from other chains can be accessed via `loadLatestDeployedAddress(key, chainId)`:
+```
+address latestFxRootTunnel = loadLatestDeployedAddress("RootTunnelProxy", rootChainId);
+```
+
 ### Deploying Custom Proxies
 
 All functions in *UpgradeScripts* can be overridden.
@@ -187,7 +208,7 @@ These functions in particular might be of interest to override.
  }
 ```
 
-See [exampleOZ/src/ExampleSetupScript.sol](./exampleOz/src/ExampleSetupScript.sol) for a
+See [exampleOZ/ExampleSetupScript.sol](./exampleOZ/src/ExampleSetupScript.sol) for a
 complete example using OpenZeppelin's upgradeable contracts.
 
 

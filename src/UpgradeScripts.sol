@@ -133,7 +133,7 @@ contract UpgradeScripts is Script {
         string memory key,
         bool attachOnly
     ) internal virtual returns (address proxy) {
-        // run this check always, as otherwise the error-message is confusing
+        // always run this check, as otherwise the error-message is confusing
         assertIsERC1967Upgrade(implementation);
 
         string memory contractName = registeredContractName[block.chainid][implementation];
