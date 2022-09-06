@@ -553,6 +553,10 @@ contract UpgradeScripts is Script {
 
     /* ------------- utils ------------- */
 
+    function isFirstTimeDeployed(address addr) internal virtual returns (bool) {
+        return firstTimeDeployed[block.chainid][addr];
+    }
+
     function deployCode(bytes memory code) internal virtual returns (address addr) {
         assembly {
             addr := create(0, add(code, 0x20), mload(code))

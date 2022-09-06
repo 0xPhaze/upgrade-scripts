@@ -173,7 +173,7 @@ If we re-run the script now, it will deploy a new implementation, perform the up
 These variables can be set in before running a script, by overriding `setUpUpgradeScripts()`
 or by passing them in with the command line. They can also be abbreviated (`US_RESET=true forge script ...`).
 
-```
+```solidity
  bool UPGRADE_SCRIPTS_RESET; // re-deploys all contracts
  bool UPGRADE_SCRIPTS_BYPASS; // deploys contracts without any checks whatsoever
  bool UPGRADE_SCRIPTS_DRY_RUN; // doesn't overwrite new deployments in deploy-latest.json
@@ -185,8 +185,16 @@ or by passing them in with the command line. They can also be abbreviated (`US_R
 ### Accessing Deployments from other Chains
 
 Deployed addresses from other chains can be accessed via `loadLatestDeployedAddress(key, chainId)`:
+```solidity
+address latestFxRootTunnel = loadLatestDeployedAddress("RootTunnelProxy", rootChainId); // will be address(0) if not found
 ```
-address latestFxRootTunnel = loadLatestDeployedAddress("RootTunnelProxy", rootChainId);
+
+### Additional init Scripts
+
+```solidity
+if (isFirstTimeDeployed(addr)) {
+    // ... do stuff
+}
 ```
 
 ### Deploying Custom Proxies
