@@ -5,17 +5,13 @@ import "forge-std/Script.sol";
 
 import {UUPSUpgrade} from "UDS/proxy/UUPSUpgrade.sol";
 import {ERC1967Proxy, ERC1967_PROXY_STORAGE_SLOT} from "UDS/proxy/ERC1967Proxy.sol";
-import {LibEnumerableSet, Uint256Set, Bytes32Set} from "UDS/lib/LibEnumerableSet.sol";
+import {LibEnumerableSet, Uint256Set} from "UDS/lib/LibEnumerableSet.sol";
 
-interface VmParseJson {
-    function parseJson(string calldata, string calldata) external returns (bytes memory);
-
-    function parseJson(string calldata) external returns (bytes memory);
-}
-
+/// @title Foundry Upgrade Scripts
+/// @author 0xPhaze (https://github.com/0xPhaze/upgrade-scripts)
+/// @notice Scripts for setting up and keeping track of deployments & proxies
 contract UpgradeScripts is Script {
     using LibEnumerableSet for Uint256Set;
-    using LibEnumerableSet for Bytes32Set;
 
     struct ContractData {
         string key;
@@ -33,34 +29,31 @@ contract UpgradeScripts is Script {
     mapping(uint256 => mapping(address => bool)) firstTimeDeployed; // set to true for contracts that are just deployed; useful for inits
     mapping(uint256 => mapping(address => mapping(address => bool))) isUpgradeSafe; // whether a contract => contract is deemed upgrade safe
 
-    Uint256Set registeredChainIds; // chainids that have registered contracts
+    Uint256Set registeredChainIds; // chainids that contain registered contracts
     mapping(uint256 => ContractData[]) registeredContracts; // contracts registered through `setUpContract` or `setUpProxy`
     mapping(uint256 => mapping(address => string)) registeredContractName; // chainid => address => name mapping
     mapping(uint256 => mapping(string => address)) registeredContractAddress; // chainid => key => address mapping
 
-    // cache
+    // cache for operations
     mapping(string => bool) __madeDir;
     mapping(uint256 => bool) __latestDeploymentsLoaded;
     mapping(uint256 => string) __latestDeploymentsJson;
     mapping(uint256 => mapping(address => bool)) __storageLayoutGenerated;
 
     constructor() {
-        setUpUpgradeScripts(); // allows for override
+        setUpUpgradeScripts(); // allows for environment variables to be set before initial load
 
         loadEnvVars();
 
         if (UPGRADE_SCRIPTS_BYPASS) return; // bypass any checks
         if (UPGRADE_SCRIPTS_ATTACH_ONLY) return; // bypass any further checks (doesn't require FFI)
 
-        // enforce dry-run when ffi is disabled, since otherwise
-        // deployments won't be able to be logged in `deploy-latest.json`
-        if (!isFFIEnabled()) {
-            if (!UPGRADE_SCRIPTS_DRY_RUN) {
-                UPGRADE_SCRIPTS_DRY_RUN = true;
-                console.log("Dry-run enabled (`FFI=false`).");
-            }
-        } else {
-            // make sure the 'deployments/data' directory exists
+        // enforce dry-run when ffi is disabled, as otherwise
+        // deployments won't be able to be stored in `deploy-latest.json`
+        if (!UPGRADE_SCRIPTS_DRY_RUN && !isFFIEnabled()) {
+            UPGRADE_SCRIPTS_DRY_RUN = true;
+
+            console.log("Dry-run enabled (`FFI=false`).");
         }
     }
 
@@ -69,6 +62,14 @@ contract UpgradeScripts is Script {
 
     /* ------------- setUp ------------- */
 
+    /// @notice Sets-up a contract. If a previous deployment is found,
+    ///         the creation-code-hash is checked against the stored contract's
+    ///         hash and a new contract is deployed if it is outdated or no
+    ///         previous deployment was found. Otherwise, it is simply attached.
+    /// @param contractName name of the contract to be deployed (must be exact)
+    /// @param constructorArgs abi-encoded constructor arguments
+    /// @param key unique identifier to be used in logs
+    /// @return implementation deployed or loaded contract implementation
     function setUpContract(
         string memory contractName,
         bytes memory constructorArgs,
@@ -127,6 +128,16 @@ contract UpgradeScripts is Script {
         registerContract(keyOrContractName, contractName, implementation);
     }
 
+    /// @notice Sets-up a proxy. If a previous deployment is found,
+    ///         it makes sure that the stored implementation matches the
+    ///         current one. Includes checks for whether the implementation
+    ///         is upgrade-compatible. If performing an upgrade, storage
+    ///         layout is diff-checked. Throws if any changes are present.
+    /// @param implementation address of the contract for delegatecalls
+    /// @param initCall abi-encoded arguments for an initial delegatecall to be
+    ///        performed during the contract's deployment
+    /// @param key unique identifier to be used in logs
+    /// @return proxy deployed or loaded proxy address
     function setUpProxy(
         address implementation,
         bytes memory initCall,
@@ -305,9 +316,7 @@ contract UpgradeScripts is Script {
         }
 
         if (bytes(__latestDeploymentsJson[chainId]).length != 0) {
-            try VmParseJson(address(vm)).parseJson(__latestDeploymentsJson[chainId], string.concat(".", key)) returns (
-                bytes memory data
-            ) {
+            try vm.parseJson(__latestDeploymentsJson[chainId], string.concat(".", key)) returns (bytes memory data) {
                 if (data.length == 32) return abi.decode(data, (address));
             } catch {}
         }
@@ -425,7 +434,7 @@ contract UpgradeScripts is Script {
         string memory path = getCreationCodeHashFilePath(addr);
 
         try vm.readFile(path) returns (string memory data) {
-            bytes32 codehash = parseBytes32(data);
+            bytes32 codehash = vm.parseBytes32(data);
 
             return codehash == newCreationCodeHash;
         } catch {}
@@ -607,6 +616,7 @@ contract UpgradeScripts is Script {
         __madeDir[path] = true;
     }
 
+    /// @dev throwing error like this, because sometimes foundry won't display any logs otherwise
     function throwError(string memory message) internal view {
         if (bytes(message).length != 0) console.log("\nError: %s", message);
 
@@ -617,12 +627,6 @@ contract UpgradeScripts is Script {
         assembly {
             return(0, 0)
         }
-    }
-
-    // hacky until vm.parseBytes32 comes around
-    function parseBytes32(string memory data) internal virtual returns (bytes32) {
-        vm.setEnv("_TMP", data);
-        return vm.envBytes32("_TMP");
     }
 
     /* ------------- contract registry ------------- */
