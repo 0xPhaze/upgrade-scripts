@@ -414,7 +414,7 @@ contract UpgradeScripts is Script {
             console.log(string(diff));
 
             console.log("\nIf you believe the storage layout is compatible, add the following to the beginning of `run()` in your deploy script.\n```"); // prettier-ignore
-            console.log("isUpgradeSafe[%s][%s][%s] = true;\n```", block.chainid, oldImplementation, newImplementation); // prettier-ignore
+            console.log("isUpgradeSafe[%s][%s][%s] = true; // prettier-ignore\n```", block.chainid, oldImplementation, newImplementation); // prettier-ignore
 
             throwError("Contract storage layout changed and might not be compatible.");
         }
