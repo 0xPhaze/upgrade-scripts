@@ -103,13 +103,13 @@ contract UpgradeScripts is Script {
                 if (creationCodeHashMatches(implementation, keccak256(creationCode))) {
                     console.log("Stored %s up-to-date.", contractLabel(contractName, implementation, key));
                 } else {
-                    console.log("Implementation for %s changed.", contractLabel(contractName, implementation, key));
+                    console.log("Implementation for [%s] changed.", contractLabel(contractName, implementation, key));
 
                     if (attachOnly) console.log("Keeping existing deployment (`attachOnly=true`).");
                     else deployNew = true;
                 }
             } else {
-                console.log("Implementation for %s not found.", contractLabel(contractName, implementation, key));
+                console.log("Existing implementation for [%s] not found.", contractLabel(contractName, implementation, key)); // prettier-ignore
 
                 deployNew = true;
 
@@ -483,14 +483,18 @@ contract UpgradeScripts is Script {
     }
 
     function getContractCode(string memory contractName) internal virtual returns (bytes memory code) {
-        string memory artifact = string.concat(contractName, ".sol");
-
-        try vm.getCode(artifact) returns (bytes memory code_) {
+        try vm.getCode(contractName) returns (bytes memory code_) {
             code = code_;
-        } catch {}
+        } catch {
+            try vm.getCode(string.concat(contractName, ".sol")) returns (bytes memory code_) {
+                code = code_;
+            } catch {}
+        }
 
         if (code.length == 0) {
-            console.log("Unable to find contract named '%s'.", contractName);
+            console.log("Unable to find artifact '%s'.", contractName);
+            console.log("Provide either a unique contract name ('MyContract'),");
+            console.log("or an artifact location ('MyContract.sol:MyContract').");
 
             throwError("Contract does not exist.");
         }
@@ -623,7 +627,7 @@ contract UpgradeScripts is Script {
         // Must revert if not dry run to cancel broadcasting transactions.
         // Sometimes Forge does not display the complete message then..
         // That's why we return instead.
-        if (!UPGRADE_SCRIPTS_DRY_RUN) revert(string.concat(message, '\nEnable "dry-run" `UPGRADE_SCRIPTS_DRY_RUN=true` to see the full error message.')); // prettier-ignore
+        if (!UPGRADE_SCRIPTS_DRY_RUN) revert(string.concat(message, '\nEnable dry-run (`UPGRADE_SCRIPTS_DRY_RUN=true`) if the error message did not show.')); // prettier-ignore
 
         assembly {
             return(0, 0)
