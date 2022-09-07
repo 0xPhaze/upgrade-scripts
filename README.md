@@ -174,12 +174,11 @@ These variables can be set in before running a script, by overriding `setUpUpgra
 or by passing them in with the command line. They can also be abbreviated (`US_RESET=true forge script ...`).
 
 ```solidity
- bool UPGRADE_SCRIPTS_RESET; // re-deploys all contracts
- bool UPGRADE_SCRIPTS_BYPASS; // deploys contracts without any checks whatsoever
- bool UPGRADE_SCRIPTS_DRY_RUN; // doesn't overwrite new deployments in deploy-latest.json
- bool UPGRADE_SCRIPTS_ATTACH_ONLY; // doesn't deploy contracts, just attaches with checks
- bool UPGRADE_SCRIPTS_CONFIRM_DEPLOY; // confirm deployments when running on mainnet
- bool UPGRADE_SCRIPTS_CONFIRM_UPGRADE; // confirm upgrades when running on mainnet
+bool UPGRADE_SCRIPTS_RESET; // re-deploys all contracts
+bool UPGRADE_SCRIPTS_BYPASS; // deploys contracts without any checks whatsoever
+bool UPGRADE_SCRIPTS_DRY_RUN; // doesn't overwrite new deployments in deploy-latest.json
+bool UPGRADE_SCRIPTS_CONFIRM; // confirm deployments/upgrades when running on mainnet
+bool UPGRADE_SCRIPTS_ATTACH_ONLY; // doesn't deploy contracts, just attaches with checks
 ```
 
 ### Accessing Deployments from other Chains
@@ -221,7 +220,7 @@ complete example using OpenZeppelin's upgradeable contracts.
 
 
 ### Running on Mainnet
-If not running on a testnet, adding `UPGRADE_SCRIPTS_CONFIRM_DEPLOY=true UPGRADE_SCRIPTS_CONFIRM_UPGRADE=true forge ...` might be necessary. This is an additional safety measure. 
+If not running on a testnet, adding `UPGRADE_SCRIPTS_CONFIRM=true forge ...` might be necessary. This is an additional safety measure. 
 
 ### Testing with Upgrade Scripts
 

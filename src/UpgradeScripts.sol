@@ -21,9 +21,8 @@ contract UpgradeScripts is Script {
     bool UPGRADE_SCRIPTS_RESET; // re-deploys all contracts
     bool UPGRADE_SCRIPTS_BYPASS; // deploys contracts without any checks whatsoever
     bool UPGRADE_SCRIPTS_DRY_RUN; // doesn't overwrite new deployments in deploy-latest.json
+    bool UPGRADE_SCRIPTS_CONFIRM; // confirm deployments/upgrades when running on mainnet
     bool UPGRADE_SCRIPTS_ATTACH_ONLY; // doesn't deploy contracts, just attaches with checks
-    bool UPGRADE_SCRIPTS_CONFIRM_DEPLOY; // confirm deployments when running on mainnet
-    bool UPGRADE_SCRIPTS_CONFIRM_UPGRADE; // confirm upgrades when running on mainnet
 
     // mappings chainid => ...
     mapping(uint256 => mapping(address => bool)) firstTimeDeployed; // set to true for contracts that are just deployed; useful for inits
@@ -260,16 +259,14 @@ contract UpgradeScripts is Script {
             UPGRADE_SCRIPTS_BYPASS = tryLoadEnvBool(UPGRADE_SCRIPTS_BYPASS, "UPGRADE_SCRIPTS_BYPASS", "US_BYPASS");
             UPGRADE_SCRIPTS_DRY_RUN = tryLoadEnvBool(UPGRADE_SCRIPTS_DRY_RUN, "UPGRADE_SCRIPTS_DRY_RUN", "US_DRY_RUN");
             UPGRADE_SCRIPTS_ATTACH_ONLY = tryLoadEnvBool(UPGRADE_SCRIPTS_ATTACH_ONLY, "UPGRADE_SCRIPTS_ATTACH_ONLY", "US_ATTACH_ONLY"); // prettier-ignore
-            UPGRADE_SCRIPTS_CONFIRM_DEPLOY = tryLoadEnvBool(UPGRADE_SCRIPTS_CONFIRM_DEPLOY, "UPGRADE_SCRIPTS_CONFIRM_DEPLOY", "US_CONFIRM_DEPLOY"); // prettier-ignore
-            UPGRADE_SCRIPTS_CONFIRM_UPGRADE = tryLoadEnvBool(UPGRADE_SCRIPTS_CONFIRM_UPGRADE, "UPGRADE_SCRIPTS_CONFIRM_UPGRADE", "US_CONFIRM_UPGRADE"); // prettier-ignore
+            UPGRADE_SCRIPTS_CONFIRM = tryLoadEnvBool(UPGRADE_SCRIPTS_CONFIRM, "UPGRADE_SCRIPTS_CONFIRM", "US_CONFIRM"); // prettier-ignore
 
             if (
                 UPGRADE_SCRIPTS_RESET ||
                 UPGRADE_SCRIPTS_BYPASS ||
                 UPGRADE_SCRIPTS_DRY_RUN ||
                 UPGRADE_SCRIPTS_ATTACH_ONLY ||
-                UPGRADE_SCRIPTS_CONFIRM_DEPLOY ||
-                UPGRADE_SCRIPTS_CONFIRM_UPGRADE
+                UPGRADE_SCRIPTS_CONFIRM
             ) console.log("");
         }
     }
@@ -414,7 +411,7 @@ contract UpgradeScripts is Script {
             console.log(string(diff));
 
             console.log("\nIf you believe the storage layout is compatible, add the following to the beginning of `run()` in your deploy script.\n```"); // prettier-ignore
-            console.log("isUpgradeSafe[%s][%s][%s] = true; // prettier-ignore\n```", block.chainid, oldImplementation, newImplementation); // prettier-ignore
+            console.log("isUpgradeSafe[%s][%s][%s] = true;\n```", block.chainid, oldImplementation, newImplementation); // prettier-ignore
 
             throwError("Contract storage layout changed and might not be compatible.");
         }
@@ -511,19 +508,11 @@ contract UpgradeScripts is Script {
         return abi.encodePacked(type(ERC1967Proxy).creationCode, abi.encode(implementation, initCall));
     }
 
-    function requireConfirmDeploy() internal virtual {
-        requireConfirmation(UPGRADE_SCRIPTS_CONFIRM_DEPLOY, "UPGRADE_SCRIPTS_CONFIRM_DEPLOY");
-    }
-
-    function requireConfirmUpgrade() internal virtual {
-        requireConfirmation(UPGRADE_SCRIPTS_CONFIRM_UPGRADE, "UPGRADE_SCRIPTS_CONFIRM_UPGRADE");
-    }
-
-    function requireConfirmation(bool confirmed, string memory variable) internal virtual {
+    function requireConfirmation() internal virtual {
         if (isTestnet() || UPGRADE_SCRIPTS_DRY_RUN || UPGRADE_SCRIPTS_BYPASS) return;
 
-        if (!confirmed) {
-            console.log("\nWARNING: `%s=true` must be set for mainnet.", variable);
+        if (UPGRADE_SCRIPTS_CONFIRM) {
+            console.log("\nWARNING: `UPGRADE_SCRIPTS_CONFIRM=true` must be set for mainnet.");
 
             if (!UPGRADE_SCRIPTS_DRY_RUN) {
                 console.log("Disabling `vm.broadcast`, continuing as dry-run.\n");
@@ -539,6 +528,8 @@ contract UpgradeScripts is Script {
     }
 
     function confirmUpgradeProxy(address proxy, address newImplementation) internal virtual {
+        requireConfirmation();
+
         upgradeProxy(proxy, newImplementation);
     }
 
@@ -551,7 +542,7 @@ contract UpgradeScripts is Script {
     }
 
     function confirmDeployCode(bytes memory code) internal virtual returns (address) {
-        requireConfirmDeploy();
+        requireConfirmation();
 
         return deployCodeWrapper(code);
     }
@@ -629,9 +620,10 @@ contract UpgradeScripts is Script {
     function throwError(string memory message) internal view {
         if (bytes(message).length != 0) console.log("\nError: %s", message);
 
-        // must revert if not dry run to stop broadcasting transactions?
-        // if (!UPGRADE_SCRIPTS_DRY_RUN) revert(string.concat(message, '\nEnable "dry-run" `UPGRADE_SCRIPTS_DRY_RUN=true` to see the full error message.')); // prettier-ignore
-        if (!UPGRADE_SCRIPTS_DRY_RUN) revert(message);
+        // Must revert if not dry run to cancel broadcasting transactions.
+        // Sometimes Forge does not display the complete message then..
+        // That's why we return instead.
+        if (!UPGRADE_SCRIPTS_DRY_RUN) revert(string.concat(message, '\nEnable "dry-run" `UPGRADE_SCRIPTS_DRY_RUN=true` to see the full error message.')); // prettier-ignore
 
         assembly {
             return(0, 0)
