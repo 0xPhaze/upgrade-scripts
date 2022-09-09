@@ -103,13 +103,13 @@ contract UpgradeScripts is Script {
                 if (creationCodeHashMatches(implementation, keccak256(creationCode))) {
                     console.log("Stored %s up-to-date.", contractLabel(contractName, implementation, key));
                 } else {
-                    console.log("Implementation for [%s] changed.", contractLabel(contractName, implementation, key));
+                    console.log("Implementation for %s changed.", contractLabel(contractName, implementation, key));
 
                     if (attachOnly) console.log("Keeping existing deployment (`attachOnly=true`).");
                     else deployNew = true;
                 }
             } else {
-                console.log("Existing implementation for [%s] not found.", contractLabel(contractName, implementation, key)); // prettier-ignore
+                console.log("Existing implementation for %s not found.", contractLabel(contractName, implementation, key)); // prettier-ignore
 
                 deployNew = true;
 
