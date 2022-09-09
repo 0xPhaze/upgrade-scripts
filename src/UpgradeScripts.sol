@@ -175,7 +175,10 @@ contract UpgradeScripts is Script {
             proxy = loadLatestDeployedAddress(keyOrContractName);
 
             if (proxy != address(0)) {
-                address storedImplementation = loadProxyStoredImplementation(proxy);
+                address storedImplementation = loadProxyStoredImplementation(
+                    proxy,
+                    proxyLabel(proxy, contractName, address(0), key)
+                );
 
                 if (storedImplementation != implementation) {
                     console.log("Existing %s needs upgrade.", proxyLabel(proxy, contractName, storedImplementation, key)); // prettier-ignore
@@ -324,20 +327,31 @@ contract UpgradeScripts is Script {
         return address(0);
     }
 
-    function loadProxyStoredImplementation(address proxy) internal virtual returns (address implementation) {
-        require(proxy.code.length != 0, string.concat("No code stored at ", vm.toString(proxy)));
+    function loadProxyStoredImplementation(address proxy) internal virtual returns (address) {
+        return loadProxyStoredImplementation(proxy, "");
+    }
+
+    function loadProxyStoredImplementation(address proxy, string memory label)
+        internal
+        virtual
+        returns (address implementation)
+    {
+        require(proxy.code.length != 0, string.concat("No code stored at ", label, "."));
 
         try vm.load(proxy, ERC1967_PROXY_STORAGE_SLOT) returns (bytes32 data) {
             implementation = address(uint160(uint256(data)));
+
+            // note: proxies should never have implementation address(0) stored
             require(
                 implementation != address(0),
-                string.concat("Invalid existing implementation address (0) for proxy ", vm.toString(proxy))
+                string.concat("Invalid existing implementation address(0) stored in ", label, ".")
             );
             require(
                 UUPSUpgrade(implementation).proxiableUUID() == ERC1967_PROXY_STORAGE_SLOT,
-                string.concat("Invalid proxiable UUID for implementation ", vm.toString(implementation))
+                string.concat("Proxy ", label, " trying to upgrade to implementation with invalid proxiable UUID: ", vm.toString(implementation)) // prettier-ignore
             );
         } catch {
+            // won't happen
             console.log("Contract %s not identified as a proxy", proxy);
         }
     }
@@ -629,10 +643,10 @@ contract UpgradeScripts is Script {
         if (bytes(message).length != 0) console.log("\nError: %s", message);
 
         // Must revert if not dry run to cancel broadcasting transactions.
-        // Sometimes Forge does not display the complete message then..
-        // That's why we return instead.
         if (!UPGRADE_SCRIPTS_DRY_RUN) revert(string.concat(message, '\nEnable dry-run (`UPGRADE_SCRIPTS_DRY_RUN=true`) if the error message did not show.')); // prettier-ignore
 
+        // Sometimes Forge does not display the complete message then..
+        // That's why we return instead.
         assembly {
             return(0, 0)
         }
@@ -791,7 +805,12 @@ contract UpgradeScripts is Script {
                 contractName,
                 proxy == address(0)
                     ? ""
-                    : string.concat("(", vm.toString(proxy), " -> ", vm.toString(implementation), ")"),
+                    : string.concat(
+                        "(",
+                        vm.toString(proxy),
+                        implementation == address(0) ? "" : string.concat(" -> ", vm.toString(implementation)),
+                        ")"
+                    ),
                 bytes(key).length == 0 ? "" : string.concat(" [", key, "]")
             );
     }
