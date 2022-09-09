@@ -1,2 +1,3 @@
 [profile.default]
 bytecode_hash = "none"
+fs_permissions = [{ access = "read-write", path = "./" }]

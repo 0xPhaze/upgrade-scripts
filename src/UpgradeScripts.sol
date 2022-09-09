@@ -485,10 +485,14 @@ contract UpgradeScripts is Script {
     function getContractCode(string memory contractName) internal virtual returns (bytes memory code) {
         try vm.getCode(contractName) returns (bytes memory code_) {
             code = code_;
-        } catch {
+        } catch (bytes memory reason) {
             try vm.getCode(string.concat(contractName, ".sol")) returns (bytes memory code_) {
                 code = code_;
-            } catch {}
+            } catch {
+                assembly {
+                    revert(add(0x20, reason), mload(reason))
+                }
+            }
         }
 
         if (code.length == 0) {
