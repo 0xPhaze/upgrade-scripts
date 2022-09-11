@@ -23,6 +23,7 @@ contract UpgradeScripts is Script {
     bool UPGRADE_SCRIPTS_DRY_RUN; // doesn't overwrite new deployments in deploy-latest.json
     bool UPGRADE_SCRIPTS_CONFIRM; // confirm deployments/upgrades when running on mainnet
     bool UPGRADE_SCRIPTS_ATTACH_ONLY; // doesn't deploy contracts, just attaches with checks
+    bool UPGRADE_SCRIPTS_BYPASS_SAFETY; // bypass all upgrade safety checks
 
     // mappings chainid => ...
     mapping(uint256 => mapping(address => bool)) firstTimeDeployed; // set to true for contracts that are just deployed; useful for inits
@@ -144,11 +145,11 @@ contract UpgradeScripts is Script {
         string memory key,
         bool attachOnly
     ) internal virtual returns (address proxy) {
-        // always run this check, as otherwise the error-message is confusing
-        assertIsERC1967Upgrade(implementation);
-
         string memory contractName = registeredContractName[block.chainid][implementation];
         string memory keyOrContractName = bytes(key).length == 0 ? string.concat(contractName, "Proxy") : key;
+
+        // always run this check, as otherwise the error-message is confusing
+        assertIsERC1967Upgrade(implementation, keyOrContractName);
 
         if (UPGRADE_SCRIPTS_BYPASS) {
             proxy = deployProxy(implementation, initCall);
@@ -261,8 +262,8 @@ contract UpgradeScripts is Script {
             UPGRADE_SCRIPTS_RESET = tryLoadEnvBool(UPGRADE_SCRIPTS_RESET, "UPGRADE_SCRIPTS_RESET", "US_RESET");
             UPGRADE_SCRIPTS_BYPASS = tryLoadEnvBool(UPGRADE_SCRIPTS_BYPASS, "UPGRADE_SCRIPTS_BYPASS", "US_BYPASS");
             UPGRADE_SCRIPTS_DRY_RUN = tryLoadEnvBool(UPGRADE_SCRIPTS_DRY_RUN, "UPGRADE_SCRIPTS_DRY_RUN", "US_DRY_RUN");
+            UPGRADE_SCRIPTS_CONFIRM = tryLoadEnvBool(UPGRADE_SCRIPTS_CONFIRM, "UPGRADE_SCRIPTS_CONFIRM", "US_CONFIRM");
             UPGRADE_SCRIPTS_ATTACH_ONLY = tryLoadEnvBool(UPGRADE_SCRIPTS_ATTACH_ONLY, "UPGRADE_SCRIPTS_ATTACH_ONLY", "US_ATTACH_ONLY"); // prettier-ignore
-            UPGRADE_SCRIPTS_CONFIRM = tryLoadEnvBool(UPGRADE_SCRIPTS_CONFIRM, "UPGRADE_SCRIPTS_CONFIRM", "US_CONFIRM"); // prettier-ignore
 
             if (
                 UPGRADE_SCRIPTS_RESET ||
@@ -391,14 +392,19 @@ contract UpgradeScripts is Script {
     ) internal virtual {
         // note that `assertIsERC1967Upgrade(newImplementation);` is always run beforehand in any case
 
-        if (isUpgradeSafe[block.chainid][oldImplementation][newImplementation]) {
-            return console.log("Storage layout compatibility check [%s <-> %s]: Pass (`isUpgradeSafe=true`)", oldImplementation, newImplementation); // prettier-ignore
-        }
         if (!isFFIEnabled()) {
             return console.log("SKIPPING storage layout compatibility check [%s <-> %s] (`FFI=false`).", oldImplementation, newImplementation); // prettier-ignore
         }
 
+        // note could skip if already generated during this script run
         generateStorageLayoutFile(contractName, newImplementation);
+
+        if (UPGRADE_SCRIPTS_BYPASS_SAFETY) {
+            return console.log("\nWARNING: Bypassing storage layout compatibility check [%s <-> %s] (`UPGRADE_SCRIPTS_BYPASS_SAFETY=true`).", oldImplementation, newImplementation); // prettier-ignore
+        }
+        if (isUpgradeSafe[block.chainid][oldImplementation][newImplementation]) {
+            return console.log("Storage layout compatibility check [%s <-> %s]: Pass (`isUpgradeSafe=true`)", oldImplementation, newImplementation); // prettier-ignore
+        }
 
         // @note give hint to skip via `isUpgradeSafe`?
         assertFileExists(getStorageLayoutFilePath(oldImplementation));
@@ -456,41 +462,46 @@ contract UpgradeScripts is Script {
         return false;
     }
 
-    function assertFileExists(string memory file) internal virtual {
+    function fileExists(string memory file) internal virtual returns (bool exists) {
         string[] memory script = new string[](2);
         script[0] = "ls";
         script[1] = file;
-
-        bool exists;
 
         try vm.ffi(script) returns (bytes memory res) {
             if (bytes(res).length != 0) {
                 exists = true;
             }
         } catch {}
+    }
 
-        if (!exists) {
+    function assertFileExists(string memory file) internal virtual {
+        if (!fileExists(file)) {
             console.log("Unable to locate file '%s'.", file);
+            console.log("You can bypass storage layout comparisons by setting `isUpgradeSafe[..] = true;`.", file);
 
             throwError("File does not exist.");
         }
     }
 
     function assertIsERC1967Upgrade(address implementation) internal virtual {
+        assertIsERC1967Upgrade(implementation, "");
+    }
+
+    function assertIsERC1967Upgrade(address implementation, string memory contractName) internal virtual {
         if (implementation.code.length == 0) {
-            console.log("No code stored at %s.", implementation);
+            console.log("No code stored at %s(%s).", contractName, implementation);
 
             throwError("Invalid contract address.");
         }
 
         try UUPSUpgrade(implementation).proxiableUUID() returns (bytes32 uuid) {
             if (uuid != ERC1967_PROXY_STORAGE_SLOT) {
-                console.log("Invalid proxiable UUID for implementation %s.", implementation);
+                console.log("Invalid proxiable UUID for implementation %s(%s).", contractName, implementation);
 
                 throwError("Contract not upgradeable.");
             }
         } catch {
-            console.log("Contract %s does not implement proxiableUUID().", implementation);
+            console.log("Contract %s(%s) does not implement proxiableUUID().", contractName, implementation);
 
             throwError("Contract not upgradeable.");
         }
