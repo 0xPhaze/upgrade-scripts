@@ -33,9 +33,7 @@ contract deploy is ExampleSetupScript {
         // run an "integration test"
         integrationTest();
 
-        // log all current deployments in console
-        logDeployments();
-        // store these in `deployments/{chainid}/deploy-latest.json` (if not in dry-run)
+        // console.log and store these in `deployments/{chainid}/deploy-latest.json` (if not in dry-run)
         storeLatestDeployments();
     }
 }

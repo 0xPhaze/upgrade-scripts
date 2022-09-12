@@ -722,6 +722,12 @@ contract UpgradeScripts is Script {
     }
 
     function storeLatestDeployments() internal virtual {
+        storeDeployments();
+    }
+
+    function storeDeployments() internal virtual {
+        logDeployments();
+
         if (!UPGRADE_SCRIPTS_DRY_RUN) {
             for (uint256 i; i < registeredChainIds.length(); i++) {
                 uint256 chainId = registeredChainIds.at(i);
