@@ -396,7 +396,6 @@ contract UpgradeScripts is Script {
             return console.log("SKIPPING storage layout compatibility check [%s <-> %s] (`FFI=false`).", oldImplementation, newImplementation); // prettier-ignore
         }
 
-        // note could skip if already generated during this script run
         generateStorageLayoutFile(contractName, newImplementation);
 
         if (UPGRADE_SCRIPTS_BYPASS_SAFETY) {
