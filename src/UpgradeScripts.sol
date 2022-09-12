@@ -426,7 +426,7 @@ contract UpgradeScripts is Script {
             console.log("Storage layout compatibility check [%s <-> %s]: Pass.", oldImplementation, newImplementation);
         } else {
             console.log("Storage layout compatibility check [%s <-> %s]: Fail", oldImplementation, newImplementation);
-            console.log("\nDiff:");
+            console.log("\n%s Diff:", contractName);
             console.log(string(diff));
 
             console.log("\nIf you believe the storage layout is compatible, add the following to the beginning of `run()` in your deploy script.\n```"); // prettier-ignore
