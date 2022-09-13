@@ -4,13 +4,11 @@ pragma solidity ^0.8.0;
 import "../src/ExampleSetupScript.sol";
 
 /* 
-# Anvil example
+# Anvil Dry-Run (make sure it is running):
+US_DRY_RUN=true forge script mint --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --ffi
 
-## Dry-run
-forge script mint --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv
-
-## Broadcast enabled
-forge script mint --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --broadcast
+# Broadcast:
+forge script mint --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvv --broadcast --ffi
 */
 
 contract mint is ExampleSetupScript {
