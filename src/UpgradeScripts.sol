@@ -102,7 +102,7 @@ contract UpgradeScripts is Script {
                 }
 
                 if (creationCodeHashMatches(implementation, keccak256(creationCode))) {
-                    console.log("Stored %s up-to-date.", contractLabel(contractName, implementation, key));
+                    console.log("%s up-to-date.", contractLabel(contractName, implementation, key));
                 } else {
                     console.log("Implementation for %s changed.", contractLabel(contractName, implementation, key));
 
@@ -194,7 +194,7 @@ contract UpgradeScripts is Script {
                         confirmUpgradeProxy(proxy, implementation);
                     }
                 } else {
-                    console.log("Stored %s up-to-date.", proxyLabel(proxy, contractName, implementation, key));
+                    console.log("%s up-to-date.", proxyLabel(proxy, contractName, implementation, key));
                 }
             } else {
                 console.log("Existing %s not found.", proxyLabel(proxy, contractName, implementation, key));
@@ -264,12 +264,14 @@ contract UpgradeScripts is Script {
             UPGRADE_SCRIPTS_DRY_RUN = tryLoadEnvBool(UPGRADE_SCRIPTS_DRY_RUN, "UPGRADE_SCRIPTS_DRY_RUN", "US_DRY_RUN");
             UPGRADE_SCRIPTS_CONFIRM = tryLoadEnvBool(UPGRADE_SCRIPTS_CONFIRM, "UPGRADE_SCRIPTS_CONFIRM", "US_CONFIRM");
             UPGRADE_SCRIPTS_ATTACH_ONLY = tryLoadEnvBool(UPGRADE_SCRIPTS_ATTACH_ONLY, "UPGRADE_SCRIPTS_ATTACH_ONLY", "US_ATTACH_ONLY"); // prettier-ignore
+            UPGRADE_SCRIPTS_BYPASS_SAFETY = tryLoadEnvBool(UPGRADE_SCRIPTS_BYPASS_SAFETY, "UPGRADE_SCRIPTS_BYPASS_SAFETY", "US_BYPASS_SAFETY"); // prettier-ignore
 
             if (
                 UPGRADE_SCRIPTS_RESET ||
                 UPGRADE_SCRIPTS_BYPASS ||
                 UPGRADE_SCRIPTS_DRY_RUN ||
                 UPGRADE_SCRIPTS_ATTACH_ONLY ||
+                UPGRADE_SCRIPTS_BYPASS_SAFETY ||
                 UPGRADE_SCRIPTS_CONFIRM
             ) console.log("");
         }
