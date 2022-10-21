@@ -302,6 +302,7 @@ contract UpgradeScripts is Script {
             vm.startBroadcast();
         } else {
             console.log("Disabling `vm.broadcast` (dry-run).\n");
+            console.log("Make sure you are running this without `--broadcast`.");
 
             // need to start prank instead now to be consistent in "dry-run"
             vm.stopBroadcast();
@@ -478,7 +479,7 @@ contract UpgradeScripts is Script {
     function assertFileExists(string memory file) internal virtual {
         if (!fileExists(file)) {
             console.log("Unable to locate file '%s'.", file);
-            console.log("You can bypass storage layout comparisons by setting `isUpgradeSafe[..] = true;`.", file);
+            console.log("You can bypass storage layout comparisons by setting `isUpgradeSafe[..] = true;`.");
 
             throwError("File does not exist.");
         }
@@ -590,7 +591,7 @@ contract UpgradeScripts is Script {
 
         firstTimeDeployed[block.chainid][addr] = true;
 
-        require(addr.code.length != 0, "Failed to deploy code.");
+        require(addr.code.length != 0, string.concat("Failed to deploy code.", vm.toString(code)));
     }
 
     /* ------------- utils ------------- */

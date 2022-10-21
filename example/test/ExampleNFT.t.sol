@@ -6,15 +6,11 @@ import "forge-std/Test.sol";
 import {ExampleSetupScript} from "../src/ExampleSetupScript.sol";
 
 contract TestExampleNFT is ExampleSetupScript {
-    function setUpUpgradeScripts() internal override {
-        UPGRADE_SCRIPTS_BYPASS = true; // deploys contracts without any checks whatsoever
-    }
-
     function setUp() public {
         setUpContracts();
     }
 
-    function test_integration() public view {
+    function test_data() public view {
         require(nft.owner() == address(this));
 
         require(keccak256(abi.encode(nft.name())) == keccak256(abi.encode("My NFT")));

@@ -179,6 +179,7 @@ bool UPGRADE_SCRIPTS_BYPASS; // deploys contracts without any checks whatsoever
 bool UPGRADE_SCRIPTS_DRY_RUN; // doesn't overwrite new deployments in deploy-latest.json
 bool UPGRADE_SCRIPTS_CONFIRM; // confirm deployments/upgrades when running on mainnet
 bool UPGRADE_SCRIPTS_ATTACH_ONLY; // doesn't deploy contracts, just attaches with checks
+bool UPGRADE_SCRIPTS_BYPASS_SAFETY; // bypass all upgrade safety checks
 ```
 
 ### Accessing Deployments from other Chains
@@ -244,6 +245,13 @@ The script can then be run via:
 ```sh
 forge script mint --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --broadcast
 ```
+
+### What is '/data/'? Should this be committed?
+
+The files in '/data/' are there 1) to tell whether a deployment's contract code has changed and needs to be re-deployed and 2) to determine whether an upgrade is safe.
+1) '*.creation-code-hash' stores the hash of the complete creation code which is used for detecting any code changes. If the the scripts can't find the relevant '.creation-code-hash' file, it will just assume that a new deployment is necessary.
+2) '*.storage-layout' keeps track of the storage layout files tied to the specific deployment addresses. This is used to ensure that the storage layout's between the old and the new implementation contracts are compatible. If the relevant '.storage-layout' file is not found for an address, the script will complain. This means the user needs to manually approve the upgrade.
+
 
 ### Contract Storage Layout Incompatible Example
 
