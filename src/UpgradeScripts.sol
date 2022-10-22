@@ -4,14 +4,14 @@ pragma solidity ^0.8.0;
 import "forge-std/Script.sol";
 
 import {UUPSUpgrade} from "UDS/proxy/UUPSUpgrade.sol";
-import {LibEnumerableSet, Uint256Set} from "UDS/lib/LibEnumerableSet.sol";
+import {LibEnumerableSet} from "UDS/lib/LibEnumerableSet.sol";
 import {ERC1967Proxy, ERC1967_PROXY_STORAGE_SLOT} from "UDS/proxy/ERC1967Proxy.sol";
 
 /// @title Foundry Upgrade Scripts
 /// @author 0xPhaze (https://github.com/0xPhaze/upgrade-scripts)
 /// @notice Scripts for setting up and keeping track of deployments & proxies
 contract UpgradeScripts is Script {
-    using LibEnumerableSet for Uint256Set;
+    using LibEnumerableSet for LibEnumerableSet.Uint256Set;
 
     struct ContractData {
         string key;
@@ -29,7 +29,7 @@ contract UpgradeScripts is Script {
     mapping(uint256 => mapping(address => bool)) firstTimeDeployed; // set to true for contracts that are just deployed; useful for inits
     mapping(uint256 => mapping(address => mapping(address => bool))) isUpgradeSafe; // whether a contract => contract is deemed upgrade safe
 
-    Uint256Set registeredChainIds; // chainids that contain registered contracts
+    LibEnumerableSet.Uint256Set registeredChainIds; // chainids that contain registered contracts
     mapping(uint256 => ContractData[]) registeredContracts; // contracts registered through `setUpContract` or `setUpProxy`
     mapping(uint256 => mapping(address => string)) registeredContractName; // chainid => address => name mapping
     mapping(uint256 => mapping(string => address)) registeredContractAddress; // chainid => key => address mapping
