@@ -20,7 +20,7 @@ contract deploy is ExampleSetupScript {
         // ffi is required for running storage layout compatibility checks
         // if ffi is disabled, it will enter "dry-run" and
         // run `vm.startPrank(tx.origin)` instead for the script to be consistent
-        startBroadcastIfNotDryRun();
+        upgradeScriptsBroadcast();
 
         // run the setup scripts
         setUpContracts();

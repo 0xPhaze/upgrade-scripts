@@ -28,5 +28,5 @@ contract ExampleNFT is UUPSUpgrade, ERC721UDS, OwnableUDS {
         _mint(to, ++totalSupply);
     }
 
-    function _authorizeUpgrade() internal override onlyOwner {}
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 }

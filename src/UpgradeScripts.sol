@@ -298,8 +298,17 @@ contract UpgradeScripts is Script {
     }
 
     function startBroadcastIfNotDryRun() internal {
+        upgradeScriptsBroadcast(address(0));
+    }
+
+    function upgradeScriptsBroadcast() internal {
+        upgradeScriptsBroadcast(address(0));
+    }
+
+    function upgradeScriptsBroadcast(address account) internal {
         if (!UPGRADE_SCRIPTS_DRY_RUN) {
-            vm.startBroadcast();
+            if (account != address(0)) vm.startBroadcast(account);
+            else vm.startBroadcast();
         } else {
             console.log("Disabling `vm.broadcast` (dry-run).\n");
             console.log("Make sure you are running this without `--broadcast`.");
