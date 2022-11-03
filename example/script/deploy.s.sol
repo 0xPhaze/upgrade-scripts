@@ -17,7 +17,7 @@ contract deploy is ExampleSetupScript {
         // isUpgradeSafe[31337][0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0][0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9] = true; // prettier-ignore
 
         // uncomment with current timestamp to confirm deployments on mainnet for 15 minutes or always allow via (block.timestamp)
-        // mainnetDeployConfirmation = 1667499028;
+        // mainnetConfirmation = 1667499028;
 
         // will run `vm.startBroadcast();` if ffi is enabled
         // ffi is required for running storage layout compatibility checks

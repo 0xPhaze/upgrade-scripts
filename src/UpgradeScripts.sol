@@ -18,7 +18,7 @@ contract UpgradeScripts is Script {
         address addr;
     }
 
-    uint256 mainnetDeployConfirmation; // last confirmation timestamp; must to be within `UPGRADE_SCRIPTS_CONFIRM_TIME_WINDOW`
+    uint256 mainnetConfirmation; // last confirmation timestamp; must to be within `UPGRADE_SCRIPTS_CONFIRM_TIME_WINDOW`
     uint256 UPGRADE_SCRIPTS_CONFIRM_TIME_WINDOW = 15 minutes;
 
     bool UPGRADE_SCRIPTS_RESET; // re-deploys all contracts
@@ -555,10 +555,10 @@ contract UpgradeScripts is Script {
     function requireConfirmation() internal virtual {
         if (isTestnet() || UPGRADE_SCRIPTS_DRY_RUN || UPGRADE_SCRIPTS_BYPASS) return;
 
-        if (block.timestamp - mainnetDeployConfirmation > UPGRADE_SCRIPTS_CONFIRM_TIME_WINDOW) {
+        if (block.timestamp - mainnetConfirmation > UPGRADE_SCRIPTS_CONFIRM_TIME_WINDOW) {
             revert(
                 string.concat(
-                    "MAINNET CONFIRMATION REQUIRED: \n```\nmainnetDeployConfirmation = ",
+                    "MAINNET CONFIRMATION REQUIRED: \n```\nmainnetConfirmation = ",
                     vm.toString(block.timestamp),
                     ";\n```"
                 )

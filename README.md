@@ -220,7 +220,7 @@ complete example using OpenZeppelin's upgradeable contracts.
 
 
 ### Running on Mainnet
-If not running on a testnet, adding a confirmation through the current timestamp will be necessary, i.e. adding `mainnetDeployConfirmation = 1667499028;`. This is an additional safety measure. 
+If not running on a testnet, adding a confirmation through the current timestamp will be necessary, i.e. adding `mainnetConfirmation = 1667499028;`. This is an additional safety measure. 
 
 ### Testing with Upgrade Scripts
 
