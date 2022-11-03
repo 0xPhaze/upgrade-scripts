@@ -31,7 +31,7 @@ contract mint is ExampleSetupScript {
         // run the setup scripts; attach contracts
         setUpContracts();
 
-        vm.startBroadcast();
+        upgradeScriptsBroadcast();
 
         // do stuff
         nft.mint(msg.sender);
