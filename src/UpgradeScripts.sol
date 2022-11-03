@@ -18,10 +18,12 @@ contract UpgradeScripts is Script {
         address addr;
     }
 
+    uint256 mainnetDeployConfirmation; // last confirmation timestamp; must to be within `UPGRADE_SCRIPTS_CONFIRM_TIME_WINDOW`
+    uint256 UPGRADE_SCRIPTS_CONFIRM_TIME_WINDOW = 15 minutes;
+
     bool UPGRADE_SCRIPTS_RESET; // re-deploys all contracts
     bool UPGRADE_SCRIPTS_BYPASS; // deploys contracts without any checks whatsoever
     bool UPGRADE_SCRIPTS_DRY_RUN; // doesn't overwrite new deployments in deploy-latest.json
-    bool UPGRADE_SCRIPTS_CONFIRM; // confirm deployments/upgrades when running on mainnet
     bool UPGRADE_SCRIPTS_ATTACH_ONLY; // doesn't deploy contracts, just attaches with checks
     bool UPGRADE_SCRIPTS_BYPASS_SAFETY; // bypass all upgrade safety checks
 
@@ -262,7 +264,6 @@ contract UpgradeScripts is Script {
             UPGRADE_SCRIPTS_RESET = tryLoadEnvBool(UPGRADE_SCRIPTS_RESET, "UPGRADE_SCRIPTS_RESET", "US_RESET");
             UPGRADE_SCRIPTS_BYPASS = tryLoadEnvBool(UPGRADE_SCRIPTS_BYPASS, "UPGRADE_SCRIPTS_BYPASS", "US_BYPASS");
             UPGRADE_SCRIPTS_DRY_RUN = tryLoadEnvBool(UPGRADE_SCRIPTS_DRY_RUN, "UPGRADE_SCRIPTS_DRY_RUN", "US_DRY_RUN");
-            UPGRADE_SCRIPTS_CONFIRM = tryLoadEnvBool(UPGRADE_SCRIPTS_CONFIRM, "UPGRADE_SCRIPTS_CONFIRM", "US_CONFIRM");
             UPGRADE_SCRIPTS_ATTACH_ONLY = tryLoadEnvBool(UPGRADE_SCRIPTS_ATTACH_ONLY, "UPGRADE_SCRIPTS_ATTACH_ONLY", "US_ATTACH_ONLY"); // prettier-ignore
             UPGRADE_SCRIPTS_BYPASS_SAFETY = tryLoadEnvBool(UPGRADE_SCRIPTS_BYPASS_SAFETY, "UPGRADE_SCRIPTS_BYPASS_SAFETY", "US_BYPASS_SAFETY"); // prettier-ignore
 
@@ -271,8 +272,7 @@ contract UpgradeScripts is Script {
                 UPGRADE_SCRIPTS_BYPASS ||
                 UPGRADE_SCRIPTS_DRY_RUN ||
                 UPGRADE_SCRIPTS_ATTACH_ONLY ||
-                UPGRADE_SCRIPTS_BYPASS_SAFETY ||
-                UPGRADE_SCRIPTS_CONFIRM
+                UPGRADE_SCRIPTS_BYPASS_SAFETY
             ) console.log("");
         }
     }
@@ -555,19 +555,14 @@ contract UpgradeScripts is Script {
     function requireConfirmation() internal virtual {
         if (isTestnet() || UPGRADE_SCRIPTS_DRY_RUN || UPGRADE_SCRIPTS_BYPASS) return;
 
-        if (UPGRADE_SCRIPTS_CONFIRM) {
-            console.log("\nWARNING: `UPGRADE_SCRIPTS_CONFIRM=true` must be set for mainnet.");
-
-            if (!UPGRADE_SCRIPTS_DRY_RUN) {
-                console.log("Disabling `vm.broadcast`, continuing as dry-run.\n");
-
-                UPGRADE_SCRIPTS_DRY_RUN = true;
-            }
-
-            // need to start prank instead now to be consistent in "dry-run"
-            vm.stopBroadcast();
-            vm.stopPrank();
-            vm.startPrank(tx.origin);
+        if (block.timestamp - mainnetDeployConfirmation > UPGRADE_SCRIPTS_CONFIRM_TIME_WINDOW) {
+            revert(
+                string.concat(
+                    "MAINNET CONFIRMATION REQUIRED: \n```\nmainnetDeployConfirmation = ",
+                    vm.toString(block.timestamp),
+                    ";\n```"
+                )
+            );
         }
     }
 

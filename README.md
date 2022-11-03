@@ -177,7 +177,6 @@ or by passing them in with the command line. They can also be abbreviated (`US_R
 bool UPGRADE_SCRIPTS_RESET; // re-deploys all contracts
 bool UPGRADE_SCRIPTS_BYPASS; // deploys contracts without any checks whatsoever
 bool UPGRADE_SCRIPTS_DRY_RUN; // doesn't overwrite new deployments in deploy-latest.json
-bool UPGRADE_SCRIPTS_CONFIRM; // confirm deployments/upgrades when running on mainnet
 bool UPGRADE_SCRIPTS_ATTACH_ONLY; // doesn't deploy contracts, just attaches with checks
 bool UPGRADE_SCRIPTS_BYPASS_SAFETY; // bypass all upgrade safety checks
 ```
@@ -193,7 +192,7 @@ address latestFxRootTunnel = loadLatestDeployedAddress("RootTunnelProxy", rootCh
 
 ```solidity
 if (isFirstTimeDeployed(addr)) {
-    // ... do stuff
+    // ... do stuff when the proxy is deployed for the first time
 }
 ```
 
@@ -221,7 +220,7 @@ complete example using OpenZeppelin's upgradeable contracts.
 
 
 ### Running on Mainnet
-If not running on a testnet, adding `UPGRADE_SCRIPTS_CONFIRM=true forge ...` might be necessary. This is an additional safety measure. 
+If not running on a testnet, adding a confirmation through the current timestamp will be necessary, i.e. adding `mainnetDeployConfirmation = 1667499028;`. This is an additional safety measure. 
 
 ### Testing with Upgrade Scripts
 
