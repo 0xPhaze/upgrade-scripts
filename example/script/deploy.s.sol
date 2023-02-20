@@ -4,12 +4,25 @@ pragma solidity ^0.8.0;
 import "../src/ExampleSetupScript.sol";
 
 /* 
-# Anvil Dry-Run (make sure it is running):
-US_DRY_RUN=true forge script deploy --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --ffi
+1. Start anvil:
+```
+anvil
+```
 
-# Broadcast:
+2. Simulate dry-run on anvil:
+```
+US_DRY_RUN=true forge script deploy --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvvv --ffi
+```
+
+3. Broadcast transactions to anvil:
+```
 forge script deploy --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 -vvv --broadcast --ffi
-*/
+```
+
+Running the above script again will have no effect as long as state on anvil persists.
+If anvil is reset, you'll have to run the above commands with `US_RESET=true` in order to ignore the file containing invalid deployments.
+
+**/
 
 contract deploy is ExampleSetupScript {
     function run() external {
@@ -29,7 +42,7 @@ contract deploy is ExampleSetupScript {
         setUpContracts();
 
         // we don't need broadcast from here on
-        vm.stopBroadcast();
+        tryStopBroadcast();
 
         // run an "integration test"
         integrationTest();

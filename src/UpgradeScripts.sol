@@ -321,6 +321,8 @@ contract UpgradeScripts is Script {
             console.log("Disabling `vm.broadcast` (dry-run).\n");
             console.log("Make sure you are running this without `--broadcast`.");
 
+            tryStopBroadcast();
+
             // need to start prank instead now to be consistent in "dry-run"
             vm.startPrank(tx.origin);
         }
@@ -627,6 +629,10 @@ contract UpgradeScripts is Script {
     }
 
     /* ------------- utils ------------- */
+
+    function tryStopBroadcast() internal {
+        try vm.stopBroadcast() {} catch (bytes memory) {}
+    }
 
     function isFirstTimeDeployed(address addr) internal virtual returns (bool) {
         return firstTimeDeployed[block.chainid][addr];
