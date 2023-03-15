@@ -549,22 +549,27 @@ contract UpgradeScripts is Script {
     }
 
     function getContractCode(string memory contractName) internal virtual returns (bytes memory code) {
+        bytes memory reason;
+
         try vm.getCode(contractName) returns (bytes memory code_) {
             code = code_;
-        } catch (bytes memory reason) {
-            try vm.getCode(string.concat(contractName, ".sol")) returns (bytes memory code_) {
+        } catch (bytes memory reason_) {
+            reason = reason_;
+            try vm.getCode(string.concat(contractName, ".sol:", contractName)) returns (bytes memory code_) {
                 code = code_;
-            } catch {
-                assembly {
-                    revert(add(0x20, reason), mload(reason))
-                }
-            }
+            } catch {}
         }
 
         if (code.length == 0) {
             console.log("Unable to find artifact '%s'.", contractName);
-            console.log("Provide either a unique contract name ('MyContract'),");
-            console.log("or an artifact location ('MyContract.sol:MyContract').");
+            console.log("Provide either a unique contract name 'MyContract',");
+            console.log("or an artifact location 'MyContract.sol:MyContract'.");
+
+            if (reason.length != 0) {
+                assembly {
+                    revert(add(0x20, reason), mload(reason))
+                }
+            }
 
             throwError("Contract does not exist.");
         }
