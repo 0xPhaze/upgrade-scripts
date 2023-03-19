@@ -72,12 +72,11 @@ contract UpgradeScripts is Script {
     /// @param constructorArgs abi-encoded constructor arguments
     /// @param key unique identifier to be used in logs
     /// @return implementation deployed or loaded contract implementation
-    function setUpContract(
-        string memory contractName,
-        bytes memory constructorArgs,
-        string memory key,
-        bool attachOnly
-    ) internal virtual returns (address implementation) {
+    function setUpContract(string memory contractName, bytes memory constructorArgs, string memory key, bool attachOnly)
+        internal
+        virtual
+        returns (address implementation)
+    {
         string memory keyOrContractName = bytes(key).length == 0 ? contractName : key;
         bytes memory creationCode = abi.encodePacked(getContractCode(contractName), constructorArgs);
 
@@ -98,7 +97,9 @@ contract UpgradeScripts is Script {
             if (implementation != address(0)) {
                 if (implementation.code.length == 0) {
                     console.log("Stored %s does not contain code.", contractLabel(contractName, implementation, key));
-                    console.log("Make sure '%s' contains all the latest deployments.", getDeploymentsPath("deploy-latest.json")); // prettier-ignore
+                    console.log(
+                        "Make sure '%s' contains all the latest deployments.", getDeploymentsPath("deploy-latest.json")
+                    ); // prettier-ignore
 
                     throwError("Invalid contract address.");
                 }
@@ -112,7 +113,9 @@ contract UpgradeScripts is Script {
                     else deployNew = true;
                 }
             } else {
-                console.log("Existing implementation for %s not found.", contractLabel(contractName, implementation, key)); // prettier-ignore
+                console.log(
+                    "Existing implementation for %s not found.", contractLabel(contractName, implementation, key)
+                ); // prettier-ignore
 
                 deployNew = true;
 
@@ -141,12 +144,11 @@ contract UpgradeScripts is Script {
     ///        performed during the contract's deployment
     /// @param key unique identifier to be used in logs
     /// @return proxy deployed or loaded proxy address
-    function setUpProxy(
-        address implementation,
-        bytes memory initCall,
-        string memory key,
-        bool attachOnly
-    ) internal virtual returns (address proxy) {
+    function setUpProxy(address implementation, bytes memory initCall, string memory key, bool attachOnly)
+        internal
+        virtual
+        returns (address proxy)
+    {
         string memory contractName = registeredContractName[block.chainid][implementation];
         string memory keyOrContractName = bytes(key).length == 0 ? string.concat(contractName, "Proxy") : key;
 
@@ -165,9 +167,16 @@ contract UpgradeScripts is Script {
         // we require the contract name/type to be able to create a storage layout mapping
         // for the implementation tied to this proxy's address
         if (bytes(contractName).length == 0) {
-            console.log("Could not identify proxy contract name/type for implementation %s [key: %s].", implementation, key); // prettier-ignore
-            console.log("Make sure the implementation type was set up via `setUpContract` for its type to be registered."); // prettier-ignore
-            console.log('Otherwise it can be set explicitly by adding `registeredContractName[%s] = "MyContract";`.', implementation); // prettier-ignore
+            console.log(
+                "Could not identify proxy contract name/type for implementation %s [key: %s].", implementation, key
+            ); // prettier-ignore
+            console.log(
+                "Make sure the implementation type was set up via `setUpContract` for its type to be registered."
+            ); // prettier-ignore
+            console.log(
+                'Otherwise it can be set explicitly by adding `registeredContractName[%s] = "MyContract";`.',
+                implementation
+            ); // prettier-ignore
 
             throwError("Could not identify contract type.");
         }
@@ -178,13 +187,13 @@ contract UpgradeScripts is Script {
             proxy = loadLatestDeployedAddress(keyOrContractName);
 
             if (proxy != address(0)) {
-                address storedImplementation = loadProxyStoredImplementation(
-                    proxy,
-                    proxyLabel(proxy, contractName, address(0), key)
-                );
+                address storedImplementation =
+                    loadProxyStoredImplementation(proxy, proxyLabel(proxy, contractName, address(0), key));
 
                 if (storedImplementation != implementation) {
-                    console.log("Existing %s needs upgrade.", proxyLabel(proxy, contractName, storedImplementation, key)); // prettier-ignore
+                    console.log(
+                        "Existing %s needs upgrade.", proxyLabel(proxy, contractName, storedImplementation, key)
+                    ); // prettier-ignore
 
                     if (attachOnly) {
                         console.log("Keeping existing deployment (`attachOnly=true`).");
@@ -220,11 +229,11 @@ contract UpgradeScripts is Script {
 
     /* ------------- overloads ------------- */
 
-    function setUpContract(
-        string memory contractName,
-        bytes memory constructorArgs,
-        string memory key
-    ) internal virtual returns (address) {
+    function setUpContract(string memory contractName, bytes memory constructorArgs, string memory key)
+        internal
+        virtual
+        returns (address)
+    {
         return setUpContract(contractName, constructorArgs, key, false);
     }
 
@@ -240,11 +249,11 @@ contract UpgradeScripts is Script {
         return setUpContract(contractName, constructorArgs, "", false);
     }
 
-    function setUpProxy(
-        address implementation,
-        bytes memory initCall,
-        string memory key
-    ) internal virtual returns (address) {
+    function setUpProxy(address implementation, bytes memory initCall, string memory key)
+        internal
+        virtual
+        returns (address)
+    {
         return setUpProxy(implementation, initCall, key, false);
     }
 
@@ -264,24 +273,23 @@ contract UpgradeScripts is Script {
             UPGRADE_SCRIPTS_RESET = tryLoadEnvBool(UPGRADE_SCRIPTS_RESET, "UPGRADE_SCRIPTS_RESET", "US_RESET");
             UPGRADE_SCRIPTS_BYPASS = tryLoadEnvBool(UPGRADE_SCRIPTS_BYPASS, "UPGRADE_SCRIPTS_BYPASS", "US_BYPASS");
             UPGRADE_SCRIPTS_DRY_RUN = tryLoadEnvBool(UPGRADE_SCRIPTS_DRY_RUN, "UPGRADE_SCRIPTS_DRY_RUN", "US_DRY_RUN");
-            UPGRADE_SCRIPTS_ATTACH_ONLY = tryLoadEnvBool(UPGRADE_SCRIPTS_ATTACH_ONLY, "UPGRADE_SCRIPTS_ATTACH_ONLY", "US_ATTACH_ONLY"); // prettier-ignore
-            UPGRADE_SCRIPTS_BYPASS_SAFETY = tryLoadEnvBool(UPGRADE_SCRIPTS_BYPASS_SAFETY, "UPGRADE_SCRIPTS_BYPASS_SAFETY", "US_BYPASS_SAFETY"); // prettier-ignore
+            UPGRADE_SCRIPTS_ATTACH_ONLY =
+                tryLoadEnvBool(UPGRADE_SCRIPTS_ATTACH_ONLY, "UPGRADE_SCRIPTS_ATTACH_ONLY", "US_ATTACH_ONLY"); // prettier-ignore
+            UPGRADE_SCRIPTS_BYPASS_SAFETY =
+                tryLoadEnvBool(UPGRADE_SCRIPTS_BYPASS_SAFETY, "UPGRADE_SCRIPTS_BYPASS_SAFETY", "US_BYPASS_SAFETY"); // prettier-ignore
 
             if (
-                UPGRADE_SCRIPTS_RESET ||
-                UPGRADE_SCRIPTS_BYPASS ||
-                UPGRADE_SCRIPTS_DRY_RUN ||
-                UPGRADE_SCRIPTS_ATTACH_ONLY ||
-                UPGRADE_SCRIPTS_BYPASS_SAFETY
+                UPGRADE_SCRIPTS_RESET || UPGRADE_SCRIPTS_BYPASS || UPGRADE_SCRIPTS_DRY_RUN
+                    || UPGRADE_SCRIPTS_ATTACH_ONLY || UPGRADE_SCRIPTS_BYPASS_SAFETY
             ) console.log("");
         }
     }
 
-    function tryLoadEnvBool(
-        bool defaultVal,
-        string memory varName,
-        string memory varAlias
-    ) internal virtual returns (bool val) {
+    function tryLoadEnvBool(bool defaultVal, string memory varName, string memory varAlias)
+        internal
+        virtual
+        returns (bool val)
+    {
         val = defaultVal;
 
         if (!val) {
@@ -313,8 +321,9 @@ contract UpgradeScripts is Script {
             console.log("Disabling `vm.broadcast` (dry-run).\n");
             console.log("Make sure you are running this without `--broadcast`.");
 
+            tryStopBroadcast();
+
             // need to start prank instead now to be consistent in "dry-run"
-            vm.stopBroadcast();
             vm.startPrank(tx.origin);
         }
     }
@@ -361,7 +370,12 @@ contract UpgradeScripts is Script {
             );
             require(
                 UUPSUpgrade(implementation).proxiableUUID() == ERC1967_PROXY_STORAGE_SLOT,
-                string.concat("Proxy ", label, " trying to upgrade to implementation with invalid proxiable UUID: ", vm.toString(implementation)) // prettier-ignore
+                string.concat(
+                    "Proxy ",
+                    label,
+                    " trying to upgrade to implementation with invalid proxiable UUID: ",
+                    vm.toString(implementation)
+                ) // prettier-ignore
             );
         } catch {
             // won't happen
@@ -373,7 +387,10 @@ contract UpgradeScripts is Script {
         if (__storageLayoutGenerated[block.chainid][implementation]) return;
 
         if (!isFFIEnabled()) {
-            return console.log("SKIPPING storage layout mapping for %s (`FFI=false`).\n", contractLabel(contractName, implementation, '')); // prettier-ignore
+            return console.log(
+                "SKIPPING storage layout mapping for %s (`FFI=false`).\n",
+                contractLabel(contractName, implementation, "")
+            ); // prettier-ignore
         }
 
         console.log("Generating storage layout mapping for %s.\n", contractLabel(contractName, implementation, ""));
@@ -397,24 +414,35 @@ contract UpgradeScripts is Script {
         __storageLayoutGenerated[block.chainid][implementation] = true;
     }
 
-    function upgradeSafetyChecks(
-        string memory contractName,
-        address oldImplementation,
-        address newImplementation
-    ) internal virtual {
+    function upgradeSafetyChecks(string memory contractName, address oldImplementation, address newImplementation)
+        internal
+        virtual
+    {
         // note that `assertIsERC1967Upgrade(newImplementation);` is always run beforehand in any case
 
         if (!isFFIEnabled()) {
-            return console.log("SKIPPING storage layout compatibility check [%s <-> %s] (`FFI=false`).", oldImplementation, newImplementation); // prettier-ignore
+            return console.log(
+                "SKIPPING storage layout compatibility check [%s <-> %s] (`FFI=false`).",
+                oldImplementation,
+                newImplementation
+            ); // prettier-ignore
         }
 
         generateStorageLayoutFile(contractName, newImplementation);
 
         if (UPGRADE_SCRIPTS_BYPASS_SAFETY) {
-            return console.log("\nWARNING: Bypassing storage layout compatibility check [%s <-> %s] (`UPGRADE_SCRIPTS_BYPASS_SAFETY=true`).", oldImplementation, newImplementation); // prettier-ignore
+            return console.log(
+                "\nWARNING: Bypassing storage layout compatibility check [%s <-> %s] (`UPGRADE_SCRIPTS_BYPASS_SAFETY=true`).",
+                oldImplementation,
+                newImplementation
+            ); // prettier-ignore
         }
         if (isUpgradeSafe[block.chainid][oldImplementation][newImplementation]) {
-            return console.log("Storage layout compatibility check [%s <-> %s]: Pass (`isUpgradeSafe=true`)", oldImplementation, newImplementation); // prettier-ignore
+            return console.log(
+                "Storage layout compatibility check [%s <-> %s]: Pass (`isUpgradeSafe=true`)",
+                oldImplementation,
+                newImplementation
+            ); // prettier-ignore
         }
 
         // @note give hint to skip via `isUpgradeSafe`?
@@ -441,7 +469,9 @@ contract UpgradeScripts is Script {
             console.log("\n%s Diff:", contractName);
             console.log(string(diff));
 
-            console.log("\nIf you believe the storage layout is compatible, add the following to the beginning of `run()` in your deploy script.\n```"); // prettier-ignore
+            console.log(
+                "\nIf you believe the storage layout is compatible, add the following to the beginning of `run()` in your deploy script.\n```"
+            ); // prettier-ignore
             console.log("isUpgradeSafe[%s][%s][%s] = true;\n```", block.chainid, oldImplementation, newImplementation); // prettier-ignore
 
             throwError("Contract storage layout changed and might not be compatible.");
@@ -519,22 +549,27 @@ contract UpgradeScripts is Script {
     }
 
     function getContractCode(string memory contractName) internal virtual returns (bytes memory code) {
+        bytes memory reason;
+
         try vm.getCode(contractName) returns (bytes memory code_) {
             code = code_;
-        } catch (bytes memory reason) {
-            try vm.getCode(string.concat(contractName, ".sol")) returns (bytes memory code_) {
+        } catch (bytes memory reason_) {
+            reason = reason_;
+            try vm.getCode(string.concat(contractName, ".sol:", contractName)) returns (bytes memory code_) {
                 code = code_;
-            } catch {
-                assembly {
-                    revert(add(0x20, reason), mload(reason))
-                }
-            }
+            } catch {}
         }
 
         if (code.length == 0) {
             console.log("Unable to find artifact '%s'.", contractName);
-            console.log("Provide either a unique contract name ('MyContract'),");
-            console.log("or an artifact location ('MyContract.sol:MyContract').");
+            console.log("Provide either a unique contract name 'MyContract',");
+            console.log("or an artifact location 'MyContract.sol:MyContract'.");
+
+            if (reason.length != 0) {
+                assembly {
+                    revert(add(0x20, reason), mload(reason))
+                }
+            }
 
             throwError("Contract does not exist.");
         }
@@ -600,6 +635,10 @@ contract UpgradeScripts is Script {
 
     /* ------------- utils ------------- */
 
+    function tryStopBroadcast() internal {
+        try vm.stopBroadcast() {} catch (bytes memory) {}
+    }
+
     function isFirstTimeDeployed(address addr) internal virtual returns (bool) {
         return firstTimeDeployed[block.chainid][addr];
     }
@@ -660,7 +699,13 @@ contract UpgradeScripts is Script {
         if (bytes(message).length != 0) console.log("\nError: %s", message);
 
         // Must revert if not dry run to cancel broadcasting transactions.
-        if (!UPGRADE_SCRIPTS_DRY_RUN) revert(string.concat(message, '\nEnable dry-run (`UPGRADE_SCRIPTS_DRY_RUN=true`) if the error message did not show.')); // prettier-ignore
+        if (!UPGRADE_SCRIPTS_DRY_RUN) {
+            revert(
+                string.concat(
+                    message, "\nEnable dry-run (`UPGRADE_SCRIPTS_DRY_RUN=true`) if the error message did not show."
+                )
+            );
+        } // prettier-ignore
 
         // Sometimes Forge does not display the complete message then..
         // That's why we return instead.
@@ -671,11 +716,7 @@ contract UpgradeScripts is Script {
 
     /* ------------- contract registry ------------- */
 
-    function registerContract(
-        string memory key,
-        string memory name,
-        address addr
-    ) internal virtual {
+    function registerContract(string memory key, string memory name, address addr) internal virtual {
         uint256 chainId = block.chainid;
 
         if (registeredContractAddress[chainId][key] != address(0)) {
@@ -747,7 +788,10 @@ contract UpgradeScripts is Script {
                     mkdir(getDeploymentsPath("", chainId));
 
                     vm.writeFile(getDeploymentsPath(string.concat("deploy-latest.json"), chainId), json);
-                    vm.writeFile(getDeploymentsPath(string.concat("deploy-", vm.toString(block.timestamp), ".json"), chainId), json); // prettier-ignore
+                    vm.writeFile(
+                        getDeploymentsPath(string.concat("deploy-", vm.toString(block.timestamp), ".json"), chainId),
+                        json
+                    ); // prettier-ignore
 
                     console.log("Deployments saved to %s.", getDeploymentsPath("deploy-latest.json", chainId)); // prettier-ignore
                 }
@@ -803,38 +847,35 @@ contract UpgradeScripts is Script {
         console.log("%s:\n", name);
     }
 
-    function contractLabel(
-        string memory contractName,
-        address addr,
-        string memory key
-    ) internal virtual returns (string memory) {
-        return
-            string.concat(
-                contractName,
-                addr == address(0) ? "" : string.concat("(", vm.toString(addr), ")"),
-                bytes(key).length == 0 ? "" : string.concat(" [", key, "]")
-            );
+    function contractLabel(string memory contractName, address addr, string memory key)
+        internal
+        virtual
+        returns (string memory)
+    {
+        return string.concat(
+            contractName,
+            addr == address(0) ? "" : string.concat("(", vm.toString(addr), ")"),
+            bytes(key).length == 0 ? "" : string.concat(" [", key, "]")
+        );
     }
 
-    function proxyLabel(
-        address proxy,
-        string memory contractName,
-        address implementation,
-        string memory key
-    ) internal virtual returns (string memory) {
-        return
-            string.concat(
-                "Proxy::",
-                contractName,
-                proxy == address(0)
-                    ? ""
-                    : string.concat(
-                        "(",
-                        vm.toString(proxy),
-                        implementation == address(0) ? "" : string.concat(" -> ", vm.toString(implementation)),
-                        ")"
-                    ),
-                bytes(key).length == 0 ? "" : string.concat(" [", key, "]")
-            );
+    function proxyLabel(address proxy, string memory contractName, address implementation, string memory key)
+        internal
+        virtual
+        returns (string memory)
+    {
+        return string.concat(
+            "Proxy::",
+            contractName,
+            proxy == address(0)
+                ? ""
+                : string.concat(
+                    "(",
+                    vm.toString(proxy),
+                    implementation == address(0) ? "" : string.concat(" -> ", vm.toString(implementation)),
+                    ")"
+                ),
+            bytes(key).length == 0 ? "" : string.concat(" [", key, "]")
+        );
     }
 }
