@@ -660,6 +660,7 @@ contract UpgradeScripts is Script {
 
         if (chainId == 4) return true; // Rinkeby
         if (chainId == 5) return true; // Goerli
+        if (chainId == 97) return true; // BSC Testnet
         if (chainId == 420) return true; // Optimism
         if (chainId == 31_337) return true; // Anvil
         if (chainId == 31_338) return true; // Anvil
