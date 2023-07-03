@@ -3,9 +3,9 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Script.sol";
 
-import {UUPSUpgrade} from "UDS/proxy/UUPSUpgrade.sol";
-import {LibEnumerableSet} from "UDS/lib/LibEnumerableSet.sol";
-import {ERC1967Proxy, ERC1967_PROXY_STORAGE_SLOT} from "UDS/proxy/ERC1967Proxy.sol";
+import {UUPSUpgrade} from "UDS/src/proxy/UUPSUpgrade.sol";
+import {LibEnumerableSet} from "UDS/src/lib/LibEnumerableSet.sol";
+import {ERC1967Proxy, ERC1967_PROXY_STORAGE_SLOT} from "UDS/src/proxy/ERC1967Proxy.sol";
 
 /// @title Foundry Upgrade Scripts
 /// @author 0xPhaze (https://github.com/0xPhaze/upgrade-scripts)

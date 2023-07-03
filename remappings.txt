@@ -1,2 +1,0 @@
-UDS/=lib/UDS/src/
-forge-std/=lib/forge-std/src/
